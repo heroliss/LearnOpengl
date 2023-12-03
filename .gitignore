@@ -1,0 +1,5 @@
+/bin/Debug/*.exe
+/bin/Release/*.exe
+/temp
+/.vs
+/.vscode
