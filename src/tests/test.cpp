@@ -69,15 +69,8 @@ namespace test
 				renderer->primitiveCountInfo.numPoints,
 				renderer->primitiveCountInfo.numQuads);
 
-			//修改显示比例
-			ImGui::SetNextItemWidth(50);
-			if (ImGui::DragFloat("Aspect", &renderer->camera.aspect, 0.01f, 0.1f, 10.0f)) {
-				renderer->camera.UpdateProjectionMatrix();
-			}
-
 			//修改宽高
 			bool screenChanged = false;
-			ImGui::SameLine();
 			ImGui::SetNextItemWidth(50);
 			screenChanged = ImGui::DragInt("X", &renderer->ViewportWidth, 1, 1, 99999);
 			ImGui::SameLine();

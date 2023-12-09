@@ -4,7 +4,7 @@
 #include "stb_image.h"
 #include "GLCALL.h"
 
-std::unordered_map<std::string, std::shared_ptr<Texture>> m_TextureCache;
+std::unordered_map<std::string, std::shared_ptr<Texture>> Texture::m_TextureCache;
 static int loadCount = 0; //调试用，加载总数
 const static int errorTextureWidth = 16; //TODO: 为什么必须是4的整数被？否则渲染错误
 const static int errorTextureChannels = 3;
@@ -75,7 +75,7 @@ void Texture::SetPureColor(unsigned char r, unsigned char g, unsigned char b) {
 /// 仅加载贴图，不会缓存
 /// </summary>
 /// <param name="path"></param>
-void Texture::Load(const std::string& path, bool flip) {
+void Texture::Load(const std::string& path, bool flip, bool generateMipmap) {
 	loadCount++; //调试用
 	loadId = loadCount;
 	std::cout << loadId << " Load texture(" << this->m_id << "):    " << path << std::endl;
@@ -121,9 +121,19 @@ void Texture::Load(const std::string& path, bool flip) {
 
 	bind();
 	GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data));
-	GenerateMipmap();
-	setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	setParameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	if (generateMipmap)
+	{
+		GenerateMipmap();
+		setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	}
+	else
+	{
+		setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	}
+	setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	unbind();
 }
 
@@ -169,12 +179,12 @@ std::shared_ptr<Texture> Texture::Get(unsigned char r, unsigned char g, unsigned
 /// <param name="path"></param>
 /// <param name="flip"></param>
 /// <returns></returns>
-std::shared_ptr<Texture> Texture::Get(const std::string& path, bool flip)
+std::shared_ptr<Texture> Texture::Get(const std::string& path, bool flip, bool generateMipmap)
 {
 	std::shared_ptr<Texture> texture;
 	if (FindOrCreate(path, texture) == false)
 	{
-		texture->Load(path, flip);
+		texture->Load(path, flip, generateMipmap);
 	}
 	return texture;
 }

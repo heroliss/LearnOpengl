@@ -12,6 +12,9 @@ public:
 	virtual ~Material() {
 		//std::cout << "销毁Material！！！！！！！！！" << std::endl;
 	}
+
+	bool IsTransparent;
+
 	Shader* GetShader() const;
 	void ApplyMVPUniforms(glm::mat4 modelMatrix) const;
 	void ApplyAllLightUniforms() const;

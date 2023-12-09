@@ -4,6 +4,7 @@
 #include "VertexBufferLayout.h"
 #include "glm/glm.hpp"
 #include "glm/gtx/euler_angles.hpp"
+#include <algorithm>
 
 namespace test {
 	Test3D::Test3D()
@@ -62,7 +63,7 @@ namespace test {
 		};
 
 		va = std::make_unique<VertexArray>();
-		auto vb = std::make_shared<VertexBuffer>(positions, sizeof(positions), sizeof(positions) / sizeof(positions[0]));
+		auto vb = std::make_shared<VertexBuffer>(VertexBufferParams_array(positions));
 		VertexBufferLayout layout;
 		layout.Push<float>(3);
 		layout.Push<float>(3);
@@ -86,6 +87,7 @@ namespace test {
 		normalDisplayMaterial = std::make_unique<NormalDisplayMaterial>();		//显示法线的材质
 		lightDisplayMaterial = std::make_unique<LightDisplayMaterial>();		//显示光源信息的材质
 		singleColorMaterial = std::make_unique<SingleColorMaterial>();
+		texcoordDisplayMaterial = std::make_unique<TexcoordDisplayMaterial>();
 
 		/*va->UnBind();
 		vb->Unbind();
@@ -103,8 +105,20 @@ namespace test {
 
 	void Test3D::AddToDrawList(const VertexArray& va, std::shared_ptr<Material> material, glm::mat4 modelMatrix, const IndexBuffer* ib, unsigned int mode, const unsigned int count)
 	{
-		DrawInfo info = DrawInfo(va, material, modelMatrix, ib, mode, count);
-		Application::GetInstance()->renderer->DrawInfoList.push_back(info);
+		DrawInfo info = DrawInfo(&va, material, modelMatrix, ib, mode, count);
+		if (material->IsTransparent)
+		{
+			glm::vec3 cameraToModel = glm::vec3(modelMatrix * glm::vec4(0, 0, 0, 1)) - Application::GetInstance()->renderer->camera.position;
+			float distance = glm::length(cameraToModel);
+			//Application::GetInstance()->renderer->transparentDrawMap[distance] = info;
+
+			info.depth = distance;
+			Application::GetInstance()->renderer->transparentDrawList.push_back(info);
+		}
+		else {
+			Application::GetInstance()->renderer->opaqueDrawList.push_back(info);
+		}
+		Application::GetInstance()->renderer->combineDrawList.push_back(info);
 	}
 
 
@@ -114,16 +128,20 @@ namespace test {
 		auto app = Application::GetInstance();
 
 		//清空绘制列表
-		app->renderer->DrawInfoList.clear();
+		//app->renderer->transparentDrawMap.clear();
+		app->renderer->transparentDrawList.clear();
+		app->renderer->opaqueDrawList.clear();
+		app->renderer->combineDrawList.clear();
 
 		//添加立方体绘制
 		if (currentModelIndex == 0)
 		{
-			//设置立方体贴图
+			//设置立方体的贴图
 			mainMaterial->MainTexture = enableMainTexture ? Texture::Get("res/textures/brickwall.jpg") : Texture::Get(255, 255, 255);
 			mainMaterial->NormalTexture = enableNormalTexture ? Texture::Get("res/textures/brickwall_normal.jpg") : Texture::Get(128, 128, 255);
 			mainMaterial->SpecularTexture = enableSpecularTexture ? Texture::Get("res/textures/dog.jpg") : Texture::Get(255, 255, 255);
 			mainMaterial->HeightTexture = nullptr;
+			mainMaterial->cubemap = showSkybox ? skybox.GetCubemap() : nullptr; //设置环境立方体贴图
 			//设置是否显示深度
 			mainMaterial->showDepth = showDepth;
 			mainMaterial->showDepthRange = showDepthRange;
@@ -155,28 +173,57 @@ namespace test {
 			{
 				auto mesh = &model->meshes[j];
 				auto material = std::make_shared<BaseMaterial3D>(); //新建材质
+				//设置环境立方体贴图
+				material->cubemap = showSkybox ? skybox.GetCubemap() : nullptr;
 				//从网格信息中设置贴图和颜色
 				material->SetFromAiMaterial(mesh->mat, model->directory, enableNormalTexture, enableMainTexture, enableSpecularTexture);
 				//设置是否显示深度
 				material->showDepth = showDepth;
 				material->showDepthRange = showDepthRange;
+
+				//调试用：跟随主材质设置
+				material->IsTransparent = mainMaterial->IsTransparent;
+				material->ObjectColor = mainMaterial->ObjectColor;
+				material->Ambient = mainMaterial->Ambient;
+				material->Emission_inside = mainMaterial->Emission_inside;
+				material->Emission_outside = mainMaterial->Emission_outside;
+				material->SpecularColor = mainMaterial->SpecularColor;
+				material->Shininess = mainMaterial->Shininess;
+				material->enableRefract = mainMaterial->enableRefract;
+				material->refractColor = mainMaterial->refractColor;
+				material->refractiveIndex = mainMaterial->refractiveIndex;
+
 				AddToDrawList(*mesh->va, material, modelMatrix, mesh->ib.get());
 			}
 		}
 
 		//------------开始绘制列表--------------
+		app->renderer->SetDepthTestActive(true); //开启深度测试
+		app->renderer->SetPolygonFillMode(); //填充模式
 
-		app->renderer->SetPolygonFillMode();
+		if (showOutline)
+		{
+			//启用模板测试
+			GLCALL(glEnable(GL_STENCIL_TEST));
+			//设置模板测试和深度测试都通过后总是写入1
+			GLCALL(glStencilFunc(GL_ALWAYS, 1, 0xFF));
+			GLCALL(glStencilMask(0xFF));
+			GLCALL(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
+		}
+		else {
+			//关闭模板测试
+			GLCALL(glDisable(GL_STENCIL_TEST));
+		}
 
-		//非透视模式显示线框或点时，先写入一遍深度
+		//非透视模式显示线框或点时，先写入一遍深度，来丢弃被挡住的片元
 		if (canSeeThrough == false && (showLine || showPoint))
 		{
 			//先用Fill模式写入深度，这样做目的是在线框或点模式中依然有整个面的深度信息，来丢弃背面被挡住的像素
-			//app->renderer->SetColorDiscard(true); //丢弃渲染结果，不写入颜色缓存 （或用下面的清除颜色缓存）
-			for (int i = 0; i < app->renderer->DrawInfoList.size(); i++)
+			//app->renderer->SetColorDiscard(true); //丢弃渲染结果，不写入颜色缓存 （或用下面的清除颜色缓存，这样可以在步骤调试时看到渲染结果）
+			for (int i = 0; i < app->renderer->opaqueDrawList.size(); i++)
 			{
-				auto& info = app->renderer->DrawInfoList[i];
-				app->renderer->Draw(info.va, *singleColorMaterial, info.modelMatrix, info.ib, info.mode, info.count);
+				auto& info = app->renderer->opaqueDrawList[i];
+				app->renderer->Draw(*info.va, *singleColorMaterial, info.modelMatrix, info.ib, info.mode, info.count);
 			}
 			//app->renderer->SetColorDiscard(false); //恢复丢弃渲染结果
 			app->renderer->ClearColorBuffer();
@@ -186,42 +233,75 @@ namespace test {
 		if (showLine) app->renderer->SetPolygonLineMode();
 		else if (showPoint) app->renderer->SetPolygonPointMode();
 
-		//渲染图像
-		for (int i = 0; i < app->renderer->DrawInfoList.size(); i++)
+		//渲染物体的方法
+		auto drawObject = [=](DrawInfo& info)
+			{
+				if (showTexcoord) app->renderer->Draw(*info.va, *texcoordDisplayMaterial, info.modelMatrix, info.ib, info.mode, info.count); //渲染纹理坐标
+				else app->renderer->Draw(*info.va, *info.material, info.modelMatrix, info.ib, info.mode, info.count); //渲染物体
+			};
+
+		//渲染不透明物体
+		for (int i = 0; i < app->renderer->opaqueDrawList.size(); i++)
 		{
-			auto& info = app->renderer->DrawInfoList[i];
-			app->renderer->Draw(info.va, *info.material, info.modelMatrix, info.ib, info.mode, info.count);
+			auto& info = app->renderer->opaqueDrawList[i];
+			drawObject(info);
 		}
 
-		//绘制边框
-		if (showOutline) {
-			GLCALL(glStencilFunc(GL_NOTEQUAL, 1, 0xFF));
-			for (int i = 0; i < app->renderer->DrawInfoList.size(); i++)
-			{
-				auto& info = app->renderer->DrawInfoList[i];
-				app->renderer->Draw(info.va, *singleColorMaterial, glm::scale(glm::mat4(1.0f), glm::vec3(1.01f)) * info.modelMatrix, info.ib, info.mode, info.count);
-			}
-			GLCALL(glStencilFunc(GL_ALWAYS, 1, 0xFF));
+		//绘制天空盒
+		if (showSkybox)
+		{
+			GLCALL(glStencilMask(0x00)); //不写入模板
+			skybox.Draw();
+			GLCALL(glStencilMask(0xFF)); //恢复写入模板
 		}
+
+		//排序透明物体
+		auto customSort = [app](const DrawInfo& a, const DrawInfo& b) {
+			return a.depth > b.depth;
+			};
+		std::sort(app->renderer->transparentDrawList.begin(), app->renderer->transparentDrawList.end(), customSort);
+
+		//渲染透明物体
+		for (int i = 0; i < app->renderer->transparentDrawList.size(); i++)
+		{
+			auto& info = app->renderer->transparentDrawList[i];
+			drawObject(info);
+		}
+
+		//从map中逆序渲染透明物体
+		//for (std::map<float, DrawInfo>::reverse_iterator it = app->renderer->transparentDrawMap.rbegin(); it != app->renderer->transparentDrawMap.rend(); ++it)
+		//{
+		//	drawObject(it->second);
+		//}
 
 		//恢复为填充模式
 		app->renderer->SetPolygonFillMode();
 
-		//绘制法线
+		//绘制边框
+		if (showOutline) {
+			for (int i = 0; i < app->renderer->combineDrawList.size(); i++)
+			{
+				auto& info = app->renderer->combineDrawList[i];
+				GLCALL(glStencilFunc(GL_NOTEQUAL, 1, 0xFF));
+				app->renderer->Draw(*info.va, *singleColorMaterial, glm::scale(info.modelMatrix, glm::vec3(1.02f)), info.ib, info.mode, info.count);
+			}
+		}
+
+		//绘制法线（透明）
 		if (normalDisplayMaterial->showFragmentNormal || normalDisplayMaterial->showVertexNormal)
 		{
-			for (int i = 0; i < app->renderer->DrawInfoList.size(); i++)
+			for (int i = 0; i < app->renderer->combineDrawList.size(); i++)
 			{
-				auto& info = app->renderer->DrawInfoList[i];
+				auto& info = app->renderer->combineDrawList[i];
 				auto* mat = dynamic_cast<BaseMaterial3D*>(info.material.get());
 				if (mat == nullptr) continue;
 				normalDisplayMaterial->NormalTexture = mat->NormalTexture;
-				app->renderer->Draw(info.va, *normalDisplayMaterial, info.modelMatrix, info.ib, info.mode, info.count);
+				app->renderer->Draw(*info.va, *normalDisplayMaterial, info.modelMatrix, info.ib, info.mode, info.count);
 			}
 		}
 		//-----------------------------------------
 
-		//光源
+		//光源（透明）
 		for (int i = 0; i < app->renderer->lights.size(); i++)
 		{
 			auto& light = app->renderer->lights[i];
@@ -260,21 +340,15 @@ namespace test {
 				if (ImGui::Checkbox("Multiple cubes", &mutiCubes)) randomSeed++;
 			}
 			ImGui::SameLine();
-			if (ImGui::Checkbox("Show outline", &showOutline))
-			{
-				if (showOutline) {
-					GLCALL(glEnable(GL_STENCIL_TEST)); //启用模板测试
-					GLCALL(glStencilMask(0xFF));
-					GLCALL(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
-				}
-				else {
-					GLCALL(glDisable(GL_STENCIL_TEST)); //关闭模板测试
-				}
-			}
+			ImGui::Checkbox("Show outline", &showOutline);
+			ImGui::SameLine();
+			ImGui::Checkbox("Show Skybox", &showSkybox);
 		}
 		//----------------------------调试---------------------------------------
 		if (ImGui::CollapsingHeader("Debug", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))
 		{
+			ImGui::Checkbox("Show texcoord", &showTexcoord);
+
 			ImGui::Checkbox("Show vertex normal", &normalDisplayMaterial->showVertexNormal);
 			ImGui::SameLine();
 			ImGui::Checkbox("Show fragment normal", &normalDisplayMaterial->showFragmentNormal);
@@ -324,10 +398,16 @@ namespace test {
 			}
 		}
 
+		//-------------------------相机--------------------------------
+		app->renderer->camera.OnInspectorGUI();
 
 		//--------------------------材质--------------------------------
 		if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))
 		{
+			//透明开关
+			ImGui::Checkbox("Is Transparent", &mainMaterial->IsTransparent);
+			ImGui::SetItemTooltip("标记是透明物体（仅影响渲染顺序，透明物体在 不透明物体 和 天空盒 之后，且排序后才渲染）");
+
 			//贴图开关
 			ImGui::Checkbox("Main Texture", &enableMainTexture);
 			ImGui::SameLine();
@@ -337,7 +417,7 @@ namespace test {
 
 			//物体颜色
 			ImGui::SetNextItemWidth(200);
-			ImGui::ColorEdit3("object color", &mainMaterial->ObjectColor.x);
+			ImGui::ColorEdit4("object color", &mainMaterial->ObjectColor.x);
 
 			//环境光颜色
 			ImGui::SetNextItemWidth(200);
@@ -359,6 +439,20 @@ namespace test {
 			ImGui::SameLine(0, 20);
 			ImGui::SetNextItemWidth(50);
 			ImGui::DragFloat("shininess", &mainMaterial->Shininess);
+
+			//折射开关
+			ImGui::Checkbox("Enable refract skybox", &mainMaterial->enableRefract);
+			ImGui::SetItemTooltip("开启折射（目前仅支持折射天空盒，不会折射其他物体）");
+
+			//折射率
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(50);
+			ImGui::DragFloat("refractive Index", &mainMaterial->refractiveIndex, 0.001f);
+			ImGui::SetItemTooltip("折射率 (空气1.00  水1.33  冰1.309  玻璃1.52  钻石2.42)");
+
+			//折射颜色
+			ImGui::SetNextItemWidth(200);
+			ImGui::ColorEdit3("refract Color", &mainMaterial->refractColor.x);
 		}
 
 

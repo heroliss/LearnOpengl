@@ -1,5 +1,9 @@
 #pragma once
 
+#define VertexBufferParams_array(x) x, sizeof(x), sizeof(x) / sizeof(x[0])
+#define VertexBufferParams_vector(x) x.data(), x.size() * sizeof(x[0]), x.size()
+
+
 class VertexBuffer
 {
 private:

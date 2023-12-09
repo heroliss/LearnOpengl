@@ -15,7 +15,7 @@ public:
 	void bind() const;
 	void unbind() const;
 	static std::shared_ptr<Texture> Get(unsigned char r, unsigned char g, unsigned char b);
-	static std::shared_ptr<Texture> Get(const std::string& path, bool flip = false);
+	static std::shared_ptr<Texture> Get(const std::string& path, bool flip = false, bool generateMipmap = true);
 	inline std::string GetPath() { return this->path; }
 	inline unsigned int GetId() const { return this->m_id; }
 
@@ -27,10 +27,10 @@ private:
 	unsigned char* data = nullptr;
 
 	void Init();
-	void Load(const std::string& path, bool flip = false);  //这个方法会改变path，但path不能随便修改，因为它是贴图缓存的key
+	void Load(const std::string& path, bool flip = false, bool generateMipmap = true);  //这个方法会改变path，但path不能随便修改，因为它是贴图缓存的key
 	void SetPureColor(unsigned char r, unsigned char g, unsigned char b); //同上
 	static bool FindOrCreate(const std::string& path, std::shared_ptr<Texture>& texture);
-	//static std::unordered_map<std::string, std::weak_ptr<Texture>> m_TextureCache;
+	static std::unordered_map<std::string, std::shared_ptr<Texture>> m_TextureCache;
 
 	/*const unsigned char errorTextureData[5 * 5 * 3] = {
 	255,   0,   0,   255, 255, 255,   255, 255, 255,   255, 255, 255,   255,   0,   0,

@@ -9,6 +9,7 @@
 #include "Light.h"
 #include "Framebuffer.h"
 #include "PostProcessingMaterial.h"
+#include <map>
 
 struct PrimitiveCountInfo
 {
@@ -54,16 +55,29 @@ struct PrimitiveCountInfo
 };
 
 struct DrawInfo {
-	DrawInfo(const VertexArray& va, std::shared_ptr<Material> material, glm::mat4 modelMatrix, const IndexBuffer* ib = nullptr, unsigned int mode = GL_TRIANGLES, const unsigned int count = 0) :
-		va(va), material(material), modelMatrix(modelMatrix), ib(ib), mode(mode), count(count)
+	DrawInfo(const VertexArray* va, std::shared_ptr<Material> material, glm::mat4 modelMatrix, const IndexBuffer* ib = nullptr, unsigned int mode = GL_TRIANGLES, const unsigned int count = 0) :
+		va(va), material(material), modelMatrix(modelMatrix), ib(ib), mode(mode), count(count), depth(0)
 	{
 	}
-	const VertexArray& va;
+	const VertexArray* va;
 	std::shared_ptr<Material> material;
 	glm::mat4 modelMatrix;
 	const IndexBuffer* ib;
 	unsigned int mode;
 	unsigned int count;
+
+	float depth; //距离摄像机的距离，用于排序
+
+	DrawInfo& operator=(const DrawInfo& other) {
+		va = other.va;
+		material = other.material;
+		modelMatrix = other.modelMatrix;
+		ib = other.ib;
+		mode = other.mode;
+		count = other.count;
+		depth = other.depth;
+		return *this;
+	}
 };
 
 class Renderer
@@ -108,7 +122,7 @@ public:
 		if (frameBuffer_va == nullptr)
 		{
 			frameBuffer_va = std::make_shared<VertexArray>();
-			auto vb = std::make_shared<VertexBuffer>(frameBuffer_quadVertices, sizeof(frameBuffer_quadVertices), sizeof(frameBuffer_quadVertices) / sizeof(frameBuffer_quadVertices[0]));
+			auto vb = std::make_shared<VertexBuffer>(VertexBufferParams_array(frameBuffer_quadVertices));
 			VertexBufferLayout layout;
 			layout.Push<float>(2);
 			layout.Push<float>(2);
@@ -116,11 +130,9 @@ public:
 		}
 		frameBuffer1 = std::make_shared<Framebuffer>();
 		frameBuffer1->Bind();
-		SetDepthTestActive(false); //关闭自定义帧缓冲的深度测试，可以不关，但开着也没用
 
 		frameBuffer2 = std::make_shared<Framebuffer>();
 		frameBuffer2->Bind();
-		SetDepthTestActive(false);
 		frameBuffer2->Unbind();
 
 		currentFrameBuffer = frameBuffer1;
@@ -128,6 +140,7 @@ public:
 	void BindCurrentFrameBuffer() {
 		currentFrameBuffer->Bind();
 		Clear();
+		SetDepthTestActive(false); //关闭自定义帧缓冲的深度测试，不关也没影响
 	}
 	void SwitchCurrentFrameBuffer() {
 		if (currentFrameBuffer == frameBuffer1) currentFrameBuffer = frameBuffer2;
@@ -137,6 +150,7 @@ public:
 	void UnbindCurrentFrameBuffer() {
 		currentFrameBuffer->Unbind();
 		Clear();
+		SetDepthTestActive(true);
 	}
 	void DrawAllPostProcessing() {
 		int materialsCount = postProcessingMaterials.size();
@@ -211,6 +225,7 @@ public:
 	void ResetCamera() {
 		camera = Camera();
 		camera.aspect = GetViewportAspect();
+		camera.UpdateOrthoRectByViewport(ViewportWidth, ViewportHeight);
 		camera.UpdateProjectionMatrix();
 		camera.UpdateViewMatrix();
 	}
@@ -226,14 +241,11 @@ public:
 	void SetClearColor(float r, float g, float b, float a);
 	const float* GetClearColor() const;
 
-	std::vector<DrawInfo> DrawInfoList;
-	void DrawList() {
-		for (int i = 0; i < DrawInfoList.size(); i++)
-		{
-			DrawInfo& info = DrawInfoList[i];
-			Draw(info.va, *info.material.get(), info.modelMatrix, info.ib, info.mode, info.count);
-		}
-	}
+	std::vector<DrawInfo> opaqueDrawList;
+	std::vector<DrawInfo> transparentDrawList;
+	std::vector<DrawInfo> combineDrawList;
+	//std::map<float, DrawInfo> transparentDrawMap;
+
 	bool Draw(const VertexArray& va, const Material& material, glm::mat4 modelMatrix = glm::mat4(1), const IndexBuffer* ib = nullptr, unsigned int mode = GL_TRIANGLES, const unsigned int count = 0) const;
 
 	void SetPolygonFillMode() {

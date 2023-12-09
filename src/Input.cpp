@@ -49,7 +49,7 @@ void Input::mouseButtonCallback(int button, int action, int mods) {
 
 void Input::cursorPosCallback(double xpos, double ypos) {
 	//使用Imgui操作时禁用鼠标操作
-	if (ImGui::IsAnyItemActive()) 
+	if (ImGui::IsAnyItemActive())
 	{
 		return;
 	}
@@ -185,12 +185,20 @@ void Input::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	//上下滚轮只有yoffset，从-3到3，xoffset恒为0
 	//std::cout << "scroll_callback " << xoffset << "  " << yoffset << std::endl;
 	auto renderer = Application::GetInstance()->renderer.get();
-	if (renderer->camera.fovy >= 1.0f && renderer->camera.fovy <= 150.0f)
-		renderer->camera.fovy -= yoffset * 5;
-	if (renderer->camera.fovy <= 1.0f)
-		renderer->camera.fovy = 1.0f;
-	if (renderer->camera.fovy >= 150.0f)
-		renderer->camera.fovy = 150.0f;
+
+	if (renderer->camera.orthoGraphic == false)
+	{
+		if (renderer->camera.fovy >= 1.0f && renderer->camera.fovy <= 150.0f)
+			renderer->camera.fovy -= yoffset * 5;
+		if (renderer->camera.fovy <= 1.0f)
+			renderer->camera.fovy = 1.0f;
+		if (renderer->camera.fovy >= 150.0f)
+			renderer->camera.fovy = 150.0f;
+	}
+	else
+	{
+		renderer->camera.orthoRect *= 1 - yoffset * 0.1;
+	}
 
 	renderer->camera.UpdateProjectionMatrix();
 }

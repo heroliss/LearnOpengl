@@ -15,7 +15,7 @@ public:
 	}
 
 	BaseMaterial_Blue() {
-		texture = Texture::Get("res/textures/111.jpg", true);
+		texture = Texture::Get("res/textures/sky_linekotsi_05_HDRI.hdr", true);
 		texture2 = Texture::Get("res/textures/222.jpg", true);
 		//设置参数：
 	/*	texture.setParameter(GL_TEXTURE_WRAP_S, GL_REPEAT);

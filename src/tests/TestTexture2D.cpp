@@ -40,7 +40,7 @@ namespace test {
 
 
 		va = std::make_unique<VertexArray>();
-		auto vb = std::make_shared<VertexBuffer>(positions, sizeof(positions), sizeof(positions) / sizeof(positions[0]));
+		auto vb = std::make_shared<VertexBuffer>(VertexBufferParams_array(positions));
 		VertexBufferLayout layout;
 		layout.Push<float>(2);
 		layout.Push<float>(2);
@@ -49,7 +49,7 @@ namespace test {
 		va->AddBuffer(vb, layout);
 
 		va2 = std::make_unique<VertexArray>();
-		auto vb2 = std::make_shared<VertexBuffer>(positions2, sizeof(positions2), sizeof(positions2) / sizeof(positions2[0]));
+		auto vb2 = std::make_shared<VertexBuffer>(VertexBufferParams_array(positions2));
 		va2->AddBuffer(vb2, layout);
 
 		ib = std::make_unique<IndexBuffer>(indices, sizeof(indices));
@@ -61,6 +61,7 @@ namespace test {
 		/*va->UnBind();
 		vb->Unbind();
 		ib->Unbind();*/
+
 	}
 
 	TestTexture2D::~TestTexture2D()

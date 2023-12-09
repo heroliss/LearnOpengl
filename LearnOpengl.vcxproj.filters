@@ -230,5 +230,20 @@
     <ClInclude Include="res\Materials\PostProcess\KernelEffect.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="src\Cubemap.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="res\Materials\SkyboxMaterial.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Skybox.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\IOnInspectorGUI.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="res\Materials\TexcoordDisplayMaterial.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

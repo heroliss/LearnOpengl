@@ -11,6 +11,7 @@
 #include "../res/Materials/NormalDisplayMaterial.h" //载入材质的象征性做法
 #include "../res/Materials/LightDisplayMaterial.h" //载入材质的象征性做法
 #include "../res/Materials/SingleColorMaterial.h" //载入材质的象征性做法
+#include "../res/Materials/TexcoordDisplayMaterial.h" //载入材质的象征性做法
 
 #include "../res/Materials/PostProcess/ResizeViewportMaterial.h"
 #include "../res/Materials/PostProcess/InverseColor.h"
@@ -18,6 +19,7 @@
 #include "../res/Materials/PostProcess/KernelEffect.h"
 
 #include "Model.h"
+#include "Skybox.h"
 
 namespace test {
 	class Test3D : public Test
@@ -31,6 +33,7 @@ namespace test {
 		void OnRender() override;
 		void OnImGuiRender() override;
 	private:
+		Skybox skybox;
 		std::unique_ptr<VertexArray> va_centerPoint;
 		std::unique_ptr<VertexArray> va;
 		std::unique_ptr<IndexBuffer> ib;
@@ -39,11 +42,14 @@ namespace test {
 		std::unique_ptr<LightDisplayMaterial> lightDisplayMaterial;
 		std::unique_ptr<SingleColorMaterial> singleColorMaterial;
 		std::unique_ptr<SingleColorMaterial> zeroColorMaterial;
+		std::unique_ptr<TexcoordDisplayMaterial> texcoordDisplayMaterial;
 		bool showDepth;
 		glm::vec2 showDepthRange = glm::vec2(1, 500); //预设的深度图范围
+		bool showSkybox;
 		bool showOutline;
 		bool showLine;
 		bool showPoint;
+		bool showTexcoord;
 		bool canSeeThrough; //showLine和showPoint时是否可以看到后面
 		bool mutiCubes;
 		bool enableNormalTexture = true;
@@ -56,10 +62,10 @@ namespace test {
 		int selectedItemIndex = -1;
 
 		int currentModelIndex = 0;
-		const char* modelNames[3] = { "cube" , "character", "car" };
-		const char* modelPaths[3] = { "", "res/Models/nanosuit/nanosuit.obj", "res/Models/rs6/rs6.obj" };
-		const float modelScales[3] = { 100, 30, 100 };
-		const glm::vec3 modelOffsets[3] = { glm::vec3(0), glm::vec3(0, -250, 0), glm::vec3(0) };
+		const char* modelNames[5] = { "cube" , "sphere", "grid sphere", "character", "car" };
+		const char* modelPaths[5] = { "", "res/Models/sphere.fbx", "res/Models/sphere_grid.3ds", "res/Models/nanosuit/nanosuit.obj", "res/Models/rs6/rs6.obj" };
+		const float modelScales[5] = { 100, 100, 1, 30, 100 };
+		const glm::vec3 modelOffsets[5] = { glm::vec3(0), glm::vec3(0), glm::vec3(0), glm::vec3(0, -250, 0), glm::vec3(0) };
 		glm::mat4 GetCurrentModelMatrix() {
 			//设置大小和偏移
 			glm::mat4 modelMatrix = glm::translate(Application::GetInstance()->input->ModelMatrix, modelOffsets[currentModelIndex]);

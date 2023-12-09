@@ -42,6 +42,7 @@ int Renderer::Init()
 	std::cout << "Max vertex attribs:" << maxVertexAttribs << std::endl; //显示最大属性数量
 
 	ResetViewportSize(ViewportWidth, ViewportHeight);
+	//ResetCamera();
 
 	//设置混合模式
 	GLCALL(glEnable(GL_BLEND));
@@ -54,7 +55,7 @@ int Renderer::Init()
 
 	//启用深度测试
 	SetDepthTestActive(true);
-	//GLCALL(glDepthFunc(GL_LEQUAL));  //默认是GL_LESS
+	GLCALL(glDepthFunc(GL_LEQUAL));  //默认是GL_LESS （绘制天空盒需要equal）
 	//GLCALL(glDepthMask(false));
 
 	//启用深度偏移
@@ -64,7 +65,7 @@ int Renderer::Init()
 	GLCALL(glDisable(GL_STENCIL_TEST));
 
 	//线型和线宽
-	GLCALL(glLineWidth(1)); //width为float类型值，在0~10.0，大于10以上按10来处理 ??   但是实测不能大于1，否则会报错
+	GLCALL(glLineWidth(1)); //width为float类型值，0到1
 	GLCALL(glEnable(GL_LINE_SMOOTH)); //设置小数值才起作用，否则就四舍五入的处理整数了
 
 	//抗锯齿
@@ -103,6 +104,7 @@ void Renderer::ApplyViewportSize(int viewportWidth, int viewportHeight, bool cre
 		if (resetCameraAspect)
 		{
 			camera.aspect = GetViewportAspect();
+			camera.UpdateOrthoRectByViewport(viewportWidth, viewportHeight);
 			camera.UpdateProjectionMatrix();
 		}
 		if (createNewFrameBuffer)

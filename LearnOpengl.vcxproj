@@ -198,6 +198,10 @@
     <ClInclude Include="res\Materials\PostProcess\Grayscale.h" />
     <ClInclude Include="res\Materials\PostProcess\InverseColor.h" />
     <ClInclude Include="res\Materials\PostProcess\KernelEffect.h" />
+    <ClInclude Include="res\Materials\SkyboxMaterial.h" />
+    <ClInclude Include="res\Materials\TexcoordDisplayMaterial.h" />
+    <ClInclude Include="src\Cubemap.h" />
+    <ClInclude Include="src\IOnInspectorGUI.h" />
     <ClInclude Include="src\PostProcessingMaterial.h" />
     <ClInclude Include="src\GLCALL.h" />
     <ClInclude Include="src\Renderbuffer.h" />
@@ -219,6 +223,7 @@
     <ClInclude Include="src\Model.h" />
     <ClInclude Include="src\Renderer.h" />
     <ClInclude Include="src\Shader.h" />
+    <ClInclude Include="src\Skybox.h" />
     <ClInclude Include="src\tests\test.h" />
     <ClInclude Include="src\tests\Test3D.h" />
     <ClInclude Include="src\tests\TestClearColor.h" />

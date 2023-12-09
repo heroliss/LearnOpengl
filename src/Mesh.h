@@ -43,7 +43,7 @@ public:
 	void SetupMesh()
 	{
 		va = std::make_unique<VertexArray>();
-		auto vb = std::make_shared<VertexBuffer>(&vertices[0], vertices.size() * sizeof(Vertex), vertices.size());
+		auto vb = std::make_shared<VertexBuffer>(VertexBufferParams_vector(vertices));
 		VertexBufferLayout layout;
 		layout.Push<float>(3);
 		layout.Push<float>(3);

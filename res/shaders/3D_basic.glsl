@@ -37,6 +37,7 @@ out vec3 v_TangentViewPos;
 out vec3 v_TangentFragPos;
 out vec3 v_TangentLightPos[MAX_LIGHT_COUNT];
 out vec3 v_TangentLightDir[MAX_LIGHT_COUNT];
+out mat3 TBN;
 
 void main()
 {
@@ -56,14 +57,14 @@ void main()
     //T = normalize(T - dot(T, N) * N);
     // then retrieve perpendicular vector B with the cross product of T and N
     //vec3 B = cross(N, T);
-
-    mat3 TBN = transpose(mat3(T, B, N)); //由世界空间转为切线空间的矩阵
-    v_TangentViewPos  = TBN * u_viewPos;
-    v_TangentFragPos  = TBN * vec3(worldPos);
+    TBN = mat3(T, B, N); //切线空间转世界空间
+    mat3 inversedTBN = transpose(TBN); //世界空间转切线空间
+    v_TangentViewPos  = inversedTBN * u_viewPos;
+    v_TangentFragPos  = inversedTBN * vec3(worldPos);
     for (int i = 0; i < MAX_LIGHT_COUNT; i++)
     {
-        v_TangentLightPos[i] = TBN * u_lights[i].pos;
-        v_TangentLightDir[i] = TBN * normalize(u_lights[i].direction);
+        v_TangentLightPos[i] = inversedTBN * u_lights[i].pos;
+        v_TangentLightDir[i] = inversedTBN * normalize(u_lights[i].direction);
     }
 }
 
@@ -82,10 +83,15 @@ uniform sampler2D u_mainTexture; //主贴图
 uniform sampler2D u_normalTexture; //法线贴图
 uniform sampler2D u_specularTexture; //高光贴图
 uniform sampler2D u_heightTexture; //高度贴图
+uniform samplerCube u_cubemap; //环境立方体贴图
 
 uniform bool u_showDepth;
 uniform vec2 u_showDepthRange;
 uniform mat4 u_Projection;
+
+uniform bool u_enableRefract;//开启折射（目前仅支持折射天空盒，此时透明度恒为1）
+uniform vec3 u_refractColor; //折射颜色
+uniform float u_refractiveIndex; //折射率
 
 in vec2 v_TexCoord;
 
@@ -93,6 +99,8 @@ in vec3 v_TangentViewPos;
 in vec3 v_TangentFragPos;
 in vec3 v_TangentLightPos[MAX_LIGHT_COUNT];
 in vec3 v_TangentLightDir[MAX_LIGHT_COUNT];
+
+in mat3 TBN;
 
 out vec4 outColor;
 
@@ -124,24 +132,42 @@ void main()
         outColor = vec4(vec3(1 - d), 1.0);
         return;
     }
+
     //纹理颜色
-//    vec4 texColor = vec4(1);
-//    ivec2 textureSize = textureSize(u_mainTexture, 0);
-//    if (textureSize.x > 1 && textureSize.y > 1) //TODO:这里检测贴图是否存在，可能这样不太好，但是没想到其他办法
-//    {
-//        texColor = texture(u_mainTexture, v_TexCoord);
-//    }
     vec4 texColor = texture(u_mainTexture, v_TexCoord);
     
-    //基础颜色 (使用vec4是为了保留透明的可能)
+    //基础颜色 (包括透明度)
     vec4 baseColor = texColor * u_objectColor;
-    vec3 allLightsColor = vec3(0.0);
     
     //从法线贴图范围[0,1]获取法线
     vec3 norm = texture(u_normalTexture, v_TexCoord).rgb;
     norm = normalize(norm * 2.0 - 1.0); //将法线向量转换为范围[-1,1]
 
+    //摄像机方向
     vec3 viewDir = normalize(v_TangentViewPos - v_TangentFragPos);
+
+    //镜面贴图（粗糙度）
+    vec3 specularTexColor = vec3(texture(u_specularTexture, v_TexCoord));
+
+    //反射光
+    vec3 viewReflectDir = TBN * reflect(-viewDir, norm); //世界空间中的视线反射方向
+    vec3 reflectColor = texture(u_cubemap, viewReflectDir).rgb; //立方体贴图采样反射光
+    reflectColor *= specularTexColor;
+    reflectColor *= u_specularColor;
+    reflectColor *= baseColor.a; //透明度越大反射光越弱
+
+    //折射光
+    vec3 refractColor = vec3(0);
+    if(u_enableRefract)
+    {
+        vec3 viewRefractDir = TBN * refract(-viewDir, norm, 1.0f / u_refractiveIndex); //世界空间中的视线折射方向
+        refractColor = texture(u_cubemap, viewRefractDir).rgb; //立方体贴图采样折射光
+        refractColor *= u_refractColor;
+        refractColor *= 1 - baseColor.a; //透明度越大折射光越强
+    }
+    
+
+    vec3 allLightsColor = vec3(0.0);
     for (int i = 0; i < MAX_LIGHT_COUNT; i++)
     {
         Light light = u_lights[i];
@@ -155,19 +181,19 @@ void main()
         }
         else if (light.type == PARALLEL_LIGHT) //平行光
         {
-            lightDir = -v_TangentLightDir[i];   //TODO===================
+            lightDir = -v_TangentLightDir[i];
             lightDistance = 0; //平行光的光源距离恒为0
         }
         else if (light.type == POINT_LIGHT || light.type == SPOT_LIGHT) //点光或聚光
         {
-            vec3 fragTolight = v_TangentLightPos[i] - v_TangentFragPos;  //TODO===================
+            vec3 fragTolight = v_TangentLightPos[i] - v_TangentFragPos;
             lightDir = normalize(fragTolight);
             lightDistance = length(fragTolight);
             if (light.type == SPOT_LIGHT)
             {
                 float cosInnerCutoffAngle = cos(radians(light.cutoffAngle.x)); //下面很多计算可提取到cpu中计算
                 float cosOuterCutoffAngle = cos(radians(light.cutoffAngle.y));
-                float cosLightAngle = dot(lightDir, -v_TangentLightDir[i]);   //TODO===================
+                float cosLightAngle = dot(lightDir, -v_TangentLightDir[i]);
                 float epsilon = cosInnerCutoffAngle - cosOuterCutoffAngle;
                 intensity = clamp((cosLightAngle - cosOuterCutoffAngle) / epsilon, 0.0, 1.0);
             }
@@ -178,7 +204,7 @@ void main()
             return;
         }
         
-        //if(dot(vec3(0,0,1), lightDir) > 0.0) //TOOD:自己乱加的：用于解决加了法线贴图后背面被照亮的问题
+        if(dot(vec3(0,0,1), lightDir) > 0.0) //TOOD:自己乱加的：用于解决加了法线贴图后背面被照亮的问题
         {
             //漫反射
             vec3 diffuse = max(dot(norm, lightDir), 0.0) * light.color;
@@ -195,16 +221,17 @@ void main()
                 vec3 midDir = normalize(viewDir + lightDir);
                 specularStrength = pow(max(dot(midDir, norm), 0.0), u_shininess);
             }
-            vec3 specularTexColor = vec3(texture(u_specularTexture, v_TexCoord));
+
             vec3 specular = u_specularColor * specularStrength * light.color * specularTexColor;
     
             //衰减
             float attenuation = 1.0 / (light.attenuation[0] + light.attenuation[1] * lightDistance + light.attenuation[2] * (lightDistance * lightDistance));
         
-            //合并所有颜色 
+            //合并所有光照
             allLightsColor += (diffuse + specular) * attenuation * intensity;
+            allLightsColor *= baseColor.a; //透视会减少光照的反射
         }
     }
-    //合并环境光、自发光
-    outColor = baseColor * vec4(allLightsColor + u_emission_inside + u_ambient, 1) + vec4(u_emission_outside, 1);
+    //合并所有颜色
+    outColor = vec4(baseColor.rgb * (allLightsColor + u_emission_inside + u_ambient + reflectColor + refractColor) + u_emission_outside, u_enableRefract ? 1 : baseColor.a); //当使用折射时透明度保持为1
 };
