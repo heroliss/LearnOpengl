@@ -2,10 +2,13 @@
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "IOnInspectorGUI.h"
+#include <algorithm>
 
 struct Camera : IOnInspectorGUI {
 	glm::mat4 ViewMatrix = glm::mat4(1.0f);
 	glm::mat4 ProjectionMatrix = glm::mat4(1.0f);
+	glm::mat4 ProjectionMatrix_ortho = glm::mat4(1.0f);
+	glm::mat4 ProjectionMatrix_perspective = glm::mat4(1.0f);
 
 	glm::vec3 position = glm::vec3(0, 0, 500);
 	glm::vec3 direction = glm::vec3(0, 0, -1);
@@ -16,23 +19,23 @@ struct Camera : IOnInspectorGUI {
 	float near = 1.0f; //近平面不能太小，否则会引起精度问题导致画面抖动，unity中最小为0.01
 	float far = 10000;
 	bool orthoGraphic;
+	float orthoRatio;
 	glm::vec4 orthoRect;
 
 	bool orthoGraphicIndividualSetting;
-
+	glm::mat4 lerpMat4(glm::mat4& a, glm::mat4& b, float t) {
+		return a + (b - a) * t;
+	}
 	void UpdateProjectionMatrix()
 	{
 		//std::cout << "update fov y : " << fovy << std::endl;
-		if (orthoGraphic)
-		{
-			if (orthoRect.w - orthoRect.z > 0)
-				aspect = (orthoRect.y - orthoRect.x) / (orthoRect.w - orthoRect.z); //TODO：这句应该放在orthoRect的属性set里
-			ProjectionMatrix = glm::ortho(orthoRect.x, orthoRect.y, orthoRect.z, orthoRect.w, near, far);
-		}
-		else
-		{
-			ProjectionMatrix = glm::perspective(glm::radians(fovy), aspect, near, far);
-		}
+		if (orthoRect.w - orthoRect.z > 0)
+			aspect = (orthoRect.y - orthoRect.x) / (orthoRect.w - orthoRect.z); //TODO：这句应该放在orthoRect的属性set里
+		ProjectionMatrix_ortho = glm::ortho(orthoRect.x, orthoRect.y, orthoRect.z, orthoRect.w, near, far);
+		ProjectionMatrix_perspective = glm::perspective(glm::radians(fovy), aspect, near, far);
+		float t = (1 - 1 / orthoRatio) * 0.002 + 1; //这个参数t的值是经测试取到变化最大的范围
+		if (t < 0) t = 0;
+		ProjectionMatrix = lerpMat4(ProjectionMatrix_perspective, ProjectionMatrix_ortho, t);
 	}
 
 	void UpdateViewMatrix()

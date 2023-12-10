@@ -19,7 +19,7 @@ public:
 		auto camera = Application::GetInstance()->renderer->camera;
 
 		shader->SetUniformMat4f("u_View", glm::mat4(glm::mat3(camera.ViewMatrix))); //只保留视图矩阵的旋转部分
-		shader->SetUniformMat4f("u_Projection", camera.ProjectionMatrix);
+		shader->SetUniformMat4f("u_Projection", camera.ProjectionMatrix_perspective); //无论如何使用透视投影矩阵
 
 
 		shader->SetUniform1i("cubemap", 0);
