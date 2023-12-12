@@ -8,6 +8,8 @@ struct VertexBufferElement
 	unsigned int type;
 	unsigned int count;
 	unsigned char normalized;
+	unsigned int instanceDivisor;
+
 	unsigned int size() const {
 		return GetSizeOfType(type) * count;
 	}
@@ -33,33 +35,33 @@ public:
 	VertexBufferLayout() : m_Stride(0), m_totalCount(0) {}
 
 	template<typename T>
-	void Push(unsigned int count) {
+	void Push(unsigned int count, unsigned int instanceDivisor = 0) {
 		//static_assert(false);
 		ASSERT(false);
 	}
 
 	template<>
-	void Push<float>(unsigned int count)
+	void Push<float>(unsigned int count, unsigned int instanceDivisor)
 	{
-		VertexBufferElement e = { GL_FLOAT, count, GL_FALSE };
+		VertexBufferElement e = { GL_FLOAT, count, GL_FALSE, instanceDivisor };
 		m_Elements.push_back(e);
 		m_Stride += e.size();
 		m_totalCount += count;
 	}
 
 	template<>
-	void Push<unsigned int>(unsigned int count)
+	void Push<unsigned int>(unsigned int count, unsigned int instanceDivisor)
 	{
-		VertexBufferElement e = { GL_UNSIGNED_INT, count, GL_FALSE };
+		VertexBufferElement e = { GL_UNSIGNED_INT, count, GL_FALSE, instanceDivisor };
 		m_Elements.push_back(e);
 		m_Stride += e.size();
 		m_totalCount += count;
 	}
 
 	template<>
-	void Push<unsigned char>(unsigned int count)
+	void Push<unsigned char>(unsigned int count, unsigned int instanceDivisor)
 	{
-		VertexBufferElement e = { GL_UNSIGNED_BYTE, count, GL_TRUE };
+		VertexBufferElement e = { GL_UNSIGNED_BYTE, count, GL_TRUE, instanceDivisor };
 		m_Elements.push_back(e);
 		m_Stride += e.size();
 		m_totalCount += count;

@@ -55,8 +55,8 @@ struct PrimitiveCountInfo
 };
 
 struct DrawInfo {
-	DrawInfo(const VertexArray* va, std::shared_ptr<Material> material, glm::mat4 modelMatrix, const IndexBuffer* ib = nullptr, unsigned int mode = GL_TRIANGLES, const unsigned int count = 0) :
-		va(va), material(material), modelMatrix(modelMatrix), ib(ib), mode(mode), count(count), depth(0)
+	DrawInfo(const VertexArray* va, std::shared_ptr<Material> material, glm::mat4 modelMatrix, const IndexBuffer* ib = nullptr, unsigned int mode = GL_TRIANGLES, const unsigned int count = 0, const unsigned int instanceCount = 1) :
+		va(va), material(material), modelMatrix(modelMatrix), ib(ib), mode(mode), count(count), depth(0), instanceCount(instanceCount)
 	{
 	}
 	const VertexArray* va;
@@ -65,6 +65,7 @@ struct DrawInfo {
 	const IndexBuffer* ib;
 	unsigned int mode;
 	unsigned int count;
+	unsigned int instanceCount;
 
 	float depth; //距离摄像机的距离，用于排序
 
@@ -75,6 +76,7 @@ struct DrawInfo {
 		ib = other.ib;
 		mode = other.mode;
 		count = other.count;
+		instanceCount = other.instanceCount;
 		depth = other.depth;
 		return *this;
 	}
@@ -246,7 +248,7 @@ public:
 	std::vector<DrawInfo> combineDrawList;
 	//std::map<float, DrawInfo> transparentDrawMap;
 
-	bool Draw(const VertexArray& va, const Material& material, glm::mat4 modelMatrix = glm::mat4(1), const IndexBuffer* ib = nullptr, unsigned int mode = GL_TRIANGLES, const unsigned int count = 0) const;
+	bool Draw(const VertexArray& va, const Material& material, glm::mat4 modelMatrix = glm::mat4(1), const IndexBuffer* ib = nullptr, const unsigned int instanceCount = 1, unsigned int mode = GL_TRIANGLES, const unsigned int count = 0) const;
 
 	void SetPolygonFillMode() {
 		GLCALL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));

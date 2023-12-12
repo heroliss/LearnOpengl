@@ -23,5 +23,5 @@ private:
 	float cameraMaxSpeed = 300.0f;
 	float cameraMaxHighSpeed = 1000.0f;
 	float modelRotateSpeed = 0.01f;
-	float modelMaxSpeed = 2.0f;
+	float modelMaxSpeed = 20.0f;
 };

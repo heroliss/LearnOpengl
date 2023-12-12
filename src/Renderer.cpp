@@ -156,7 +156,7 @@ void Renderer::SetClearColor(float r, float g, float b, float a)
 }
 
 //渲染顶点数据，ib可以为空
-bool Renderer::Draw(const VertexArray& va, const Material& material, glm::mat4 modelMatrix, const IndexBuffer* ib, unsigned int mode, const unsigned int count) const
+bool Renderer::Draw(const VertexArray& va, const Material& material, glm::mat4 modelMatrix, const IndexBuffer* ib, const unsigned int instanceCount, unsigned int mode, const unsigned int count) const
 {
 	stepCount++;
 	if (stepCount > stepCountLimit) return false; //限制渲染步数，用于图像调试
@@ -171,13 +171,15 @@ bool Renderer::Draw(const VertexArray& va, const Material& material, glm::mat4 m
 	{
 		if (count == 0) verticesCount = ib->GetCount();
 		ib->Bind();
-		GLCALL(glDrawElements(mode, verticesCount, GL_UNSIGNED_INT, nullptr));
+		GLCALL(glDrawElementsInstanced(mode, verticesCount, GL_UNSIGNED_INT, nullptr, instanceCount));
+		ib->Unbind();
 	}
 	else {
 		if (count == 0) verticesCount = va.GetVertexCount();
-		GLCALL(glDrawArrays(mode, 0, verticesCount));
+		GLCALL(glDrawArraysInstanced(mode, 0, verticesCount, instanceCount));
 	}
-	primitiveCountInfo += CalculateRenderCounts(verticesCount, mode);
+	va.UnBind();
+	primitiveCountInfo += CalculateRenderCounts(verticesCount * instanceCount, mode);
 	return true;
 }
 

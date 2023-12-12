@@ -103,9 +103,9 @@ namespace test {
 
 	}
 
-	void Test3D::AddToDrawList(const VertexArray& va, std::shared_ptr<Material> material, glm::mat4 modelMatrix, const IndexBuffer* ib, unsigned int mode, const unsigned int count)
+	void Test3D::AddToDrawList(const VertexArray& va, std::shared_ptr<Material> material, glm::mat4 modelMatrix, const IndexBuffer* ib, const unsigned int instanceCount, unsigned int mode, const unsigned int count)
 	{
-		DrawInfo info = DrawInfo(&va, material, modelMatrix, ib, mode, count);
+		DrawInfo info = DrawInfo(&va, material, modelMatrix, ib, mode, count, instanceCount);
 		if (material->IsTransparent)
 		{
 			glm::vec3 cameraToModel = glm::vec3(modelMatrix * glm::vec4(0, 0, 0, 1)) - Application::GetInstance()->renderer->camera.position;
@@ -169,31 +169,32 @@ namespace test {
 		{
 			auto model = Model::Get(modelPaths[currentModelIndex]);
 			glm::mat4 modelMatrix = GetCurrentModelMatrix(); //设置大小和偏移
+			//对模型的每一个mesh加入到绘制列表
 			for (int j = 0; j < model->meshes.size(); j++)
 			{
 				auto mesh = &model->meshes[j];
-				auto material = std::make_shared<BaseMaterial3D>(); //新建材质
-				//设置环境立方体贴图
-				material->cubemap = showSkybox ? skybox.GetCubemap() : nullptr;
+				auto material = std::make_shared<BaseMaterial3D>(); //每帧新建材质(可优化)，每个mesh可能有不同的贴图设置
 				//从网格信息中设置贴图和颜色
 				material->SetFromAiMaterial(mesh->mat, model->directory, enableNormalTexture, enableMainTexture, enableSpecularTexture);
-				//设置是否显示深度
-				material->showDepth = showDepth;
-				material->showDepthRange = showDepthRange;
-
-				//调试用：跟随主材质设置
-				material->IsTransparent = mainMaterial->IsTransparent;
-				material->ObjectColor = mainMaterial->ObjectColor;
-				material->Ambient = mainMaterial->Ambient;
-				material->Emission_inside = mainMaterial->Emission_inside;
-				material->Emission_outside = mainMaterial->Emission_outside;
-				material->SpecularColor = mainMaterial->SpecularColor;
-				material->Shininess = mainMaterial->Shininess;
-				material->enableRefract = mainMaterial->enableRefract;
-				material->refractColor = mainMaterial->refractColor;
-				material->refractiveIndex = mainMaterial->refractiveIndex;
-
+				SetMaterialSameAsMainMaterial(material);
 				AddToDrawList(*mesh->va, material, modelMatrix, mesh->ib.get());
+			}
+
+			//对于第六个行星模型，额外绘制小行星带
+			if (currentModelIndex == 5) {
+				if (rockModel == nullptr)
+					InitAsteroid();
+				for (int j = 0; j < rockModel->meshes.size(); j++)
+				{
+					auto mesh = &rockModel->meshes[j];
+					auto material = std::make_shared<BaseMaterial3D>(); //每帧新建材质(可优化)，每个mesh可能有不同的贴图设置
+					//从网格信息中设置贴图和颜色
+					material->SetFromAiMaterial(mesh->mat, rockModel->directory, enableNormalTexture, enableMainTexture, enableSpecularTexture);
+					SetMaterialSameAsMainMaterial(material);
+					AddToDrawList(*mesh->va, material, glm::mat4(0), mesh->ib.get(), asteroidBeltAmount);
+				}
+				//小行星公转
+				AsteroidRevolves();
 			}
 		}
 
@@ -223,7 +224,7 @@ namespace test {
 			for (int i = 0; i < app->renderer->opaqueDrawList.size(); i++)
 			{
 				auto& info = app->renderer->opaqueDrawList[i];
-				app->renderer->Draw(*info.va, *singleColorMaterial, info.modelMatrix, info.ib, info.mode, info.count);
+				app->renderer->Draw(*info.va, *singleColorMaterial, info.modelMatrix, info.ib, info.instanceCount, info.mode, info.count);
 			}
 			//app->renderer->SetColorDiscard(false); //恢复丢弃渲染结果
 			app->renderer->ClearColorBuffer();
@@ -236,8 +237,8 @@ namespace test {
 		//渲染物体的方法
 		auto drawObject = [=](DrawInfo& info)
 			{
-				if (showTexcoord) app->renderer->Draw(*info.va, *texcoordDisplayMaterial, info.modelMatrix, info.ib, info.mode, info.count); //渲染纹理坐标
-				else app->renderer->Draw(*info.va, *info.material, info.modelMatrix, info.ib, info.mode, info.count); //渲染物体
+				if (showTexcoord) app->renderer->Draw(*info.va, *texcoordDisplayMaterial, info.modelMatrix, info.ib, info.instanceCount, info.mode, info.count); //渲染纹理坐标
+				else app->renderer->Draw(*info.va, *info.material, info.modelMatrix, info.ib, info.instanceCount, info.mode, info.count); //渲染物体
 			};
 
 		//渲染不透明物体
@@ -283,7 +284,7 @@ namespace test {
 			{
 				auto& info = app->renderer->combineDrawList[i];
 				GLCALL(glStencilFunc(GL_NOTEQUAL, 1, 0xFF));
-				app->renderer->Draw(*info.va, *singleColorMaterial, glm::scale(info.modelMatrix, glm::vec3(1.02f)), info.ib, info.mode, info.count);
+				app->renderer->Draw(*info.va, *singleColorMaterial, glm::scale(info.modelMatrix, glm::vec3(1.02f)), info.ib, info.instanceCount, info.mode, info.count);
 			}
 		}
 
@@ -296,7 +297,7 @@ namespace test {
 				auto* mat = dynamic_cast<BaseMaterial3D*>(info.material.get());
 				if (mat == nullptr) continue;
 				normalDisplayMaterial->NormalTexture = mat->NormalTexture;
-				app->renderer->Draw(*info.va, *normalDisplayMaterial, info.modelMatrix, info.ib, info.mode, info.count);
+				app->renderer->Draw(*info.va, *normalDisplayMaterial, info.modelMatrix, info.ib, info.instanceCount, info.mode, info.count);
 			}
 		}
 		//-----------------------------------------
@@ -320,7 +321,7 @@ namespace test {
 			if (light->showGizmo) {
 				lightDisplayMaterial->lightIndex = i;
 				lightDisplayMaterial->gizmoSize = light->gizmoSize;
-				app->renderer->Draw(*va_centerPoint, *lightDisplayMaterial, glm::translate(glm::mat4(1.0f), light->pos), nullptr, GL_POINTS, 1);
+				app->renderer->Draw(*va_centerPoint, *lightDisplayMaterial, glm::translate(glm::mat4(1.0f), light->pos), nullptr, 1, GL_POINTS, 1);
 			}
 		}
 	}
@@ -334,15 +335,59 @@ namespace test {
 		if (ImGui::CollapsingHeader("Model", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))
 		{
 			ImGui::SetNextItemWidth(100);
-			if (ImGui::Combo("##empty", &currentModelIndex, modelNames, IM_ARRAYSIZE(modelNames)));
-			if (currentModelIndex == 0) {
-				ImGui::SameLine();
-				if (ImGui::Checkbox("Multiple cubes", &mutiCubes)) randomSeed++;
-			}
+			ImGui::Combo("##empty", &currentModelIndex, modelNames, IM_ARRAYSIZE(modelNames));
 			ImGui::SameLine();
 			ImGui::Checkbox("Show outline", &showOutline);
 			ImGui::SameLine();
 			ImGui::Checkbox("Show Skybox", &showSkybox);
+			//立方体模型设置
+			if (currentModelIndex == 0)
+			{
+				ImGui::SameLine();
+				ImGui::Checkbox("Multiple cubes", &mutiCubes);
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(50);
+				ImGui::DragInt("Random Seed", &randomSeed);
+			}
+			//小行星带模型设置
+			else if (currentModelIndex == 5)
+			{
+				ImGui::SetNextItemWidth(60);
+				if (ImGui::DragInt("Asteroid Amount", (int*)&asteroidBeltAmount, 1, 0, 999999))
+				{
+					for (int j = 0; j < rockModel->meshes.size(); j++)
+					{
+						auto mesh = &rockModel->meshes[j];
+						if (mesh->va->vbList.size() > 1)
+						{
+							//小行星数量发生变化，需要重新生成石块的实例化vertexBuffer
+							mesh->va->PopVertexBuffer(); //先移除旧的vb
+							InitAsteroid();
+						}
+					}
+				}
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(60);
+				if (ImGui::DragInt("Random Seed", &randomSeed)) InitAsteroidPos(); //重新计算和设置实例化vertexbuffer中的位置数据
+
+				ImGui::SetNextItemWidth(60);
+				ImGui::DragFloat("Planet Mass(mt)", &planetMass, 0.1f);
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(60);
+				ImGui::DragFloat("Time Scale", &planetTimeScale, 10.0f);
+
+				ImGui::SetNextItemWidth(60);
+				if (ImGui::DragFloat("Radius(m)", &asteroidBeltRadius, 1.0f, 100.0f)) InitAsteroidPos();
+				ImGui::SetItemTooltip("小行星带最内圈半径");
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(60);
+				if (ImGui::DragFloat("Width(m)", &asteroidBeltWidth, 1.0f, 0.0f)) InitAsteroidPos();
+				ImGui::SetItemTooltip("小行星带宽度（既xz方向向外拓展的距离）");
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(60);
+				if (ImGui::DragFloat("Thickness(m)", &asteroidBeltThickness, 1.0f, 0.0f)) InitAsteroidPos();
+				ImGui::SetItemTooltip("小行星带厚度（既y方向的厚度）");
+			}
 		}
 		//----------------------------调试---------------------------------------
 		if (ImGui::CollapsingHeader("Debug", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))

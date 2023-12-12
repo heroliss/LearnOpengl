@@ -15,7 +15,7 @@ enum LightType {
 class Light
 {
 public:
-	LightType type = LightType::POINT_LIGHT;
+	LightType type = LightType::PARALLEL_LIGHT;
 	glm::vec3 pos = glm::vec3(-100, 100, 100);                        //光源位置 (平行光无用)
 	glm::vec3 direction = glm::normalize(glm::vec3(1, -1, -1));   //照射方向（点光源无用）
 	glm::vec3 color = glm::vec3(1);

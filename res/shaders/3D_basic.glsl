@@ -24,6 +24,7 @@ in vec3 normal;
 in vec2 texCoord;
 in vec3 tangent;
 in vec3 bitangent;
+in mat4 instanceMatrix;
 
 uniform mat4 u_Model;
 uniform mat4 u_View;
@@ -41,13 +42,15 @@ out mat3 TBN;
 
 void main()
 {
+    mat4 modelMatrix = u_Model == mat4(0) ? instanceMatrix : u_Model;
+
     //输出齐次裁剪空间的顶点位置，注意乘法要从右向左读
-    vec4 worldPos = u_Model * vec4(position, 1.0);
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
     gl_Position = u_Projection * u_View * worldPos;
     v_TexCoord = texCoord; //输出纹理坐标
     
     //计算法线矩阵
-    mat3 worldNormalMatrix = mat3(transpose(inverse(u_Model)));
+    mat3 worldNormalMatrix = mat3(transpose(inverse(modelMatrix)));
     //计算世界空间中的切线空间基的方向
     vec3 T = normalize(worldNormalMatrix * tangent);
     vec3 B = normalize(worldNormalMatrix * bitangent);
