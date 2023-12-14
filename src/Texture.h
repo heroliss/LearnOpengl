@@ -8,7 +8,6 @@ class Texture {
 public:
 	Texture();
 	~Texture();
-	void GenerateMipmap();
 	void setParameter(unsigned int pname, unsigned int param);
 	void SetUnit(unsigned int unit) const;
 	void UnsetUnit(unsigned int unit) const;
@@ -18,6 +17,8 @@ public:
 	static std::shared_ptr<Texture> Get(const std::string& path, bool flip = false, bool generateMipmap = true);
 	inline std::string GetPath() { return this->path; }
 	inline unsigned int GetId() const { return this->m_id; }
+
+	static void ClearCache() { m_TextureCache.clear(); }
 
 private:
 	int loadId = 0; //调试用
@@ -31,22 +32,4 @@ private:
 	void SetPureColor(unsigned char r, unsigned char g, unsigned char b); //同上
 	static bool FindOrCreate(const std::string& path, std::shared_ptr<Texture>& texture);
 	static std::unordered_map<std::string, std::shared_ptr<Texture>> m_TextureCache;
-
-	/*const unsigned char errorTextureData[5 * 5 * 3] = {
-	255,   0,   0,   255, 255, 255,   255, 255, 255,   255, 255, 255,   255,   0,   0,
-	255, 255, 255,   255,   0,   0,   255, 255, 255,   255,   0,   0,   255, 255, 255,
-	255, 255, 255,   255, 255, 255,   255,   0,   0,   255, 255, 255,   255, 255, 255,
-	255, 255, 255,   255,   0,   0,   255, 255, 255,   255,   0,   0,   255, 255, 255,
-	255,   0,   0,   255, 255, 255,   255, 255, 255,   255, 255, 255,   255,   0,   0
-	};*/
-	//const unsigned char errorTextureData[5 * 5 * 3] = {
-	//000, 255, 000,   000, 000, 000,   000, 000, 000,   000, 000, 000,   000, 000, 000,
-	//000, 000, 000,   000, 000, 000,   000, 000, 000,   000, 000, 000,   000, 000, 000,
-	//000, 000, 000,   000, 000, 000,   000, 000, 000,   000, 000, 000,   000, 000, 000,
-	//000, 000, 000,   000, 000, 000,   000, 000, 000,   000, 000, 000,   000, 000, 000,
-	//000, 000, 000,   000, 000, 000,   000, 000, 000,   000, 000, 000,   000, 000, 000
-	//};
-	//const static int errorTextureWidth = 20;
-	//const static int errorTextureChannels = 3;
-	//static char errorTextureData[errorTextureWidth * errorTextureWidth * errorTextureChannels];
 };

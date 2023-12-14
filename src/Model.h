@@ -12,6 +12,7 @@ class Model {
 private:
 	static std::unordered_map<std::string, std::shared_ptr<Model>> m_ModelCache;
 public:
+	static void ClearCache() { m_ModelCache.clear(); }
 	static shared_ptr<Model> Get(const std::string& path)
 	{
 		auto it = m_ModelCache.find(path);

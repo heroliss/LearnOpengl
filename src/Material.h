@@ -21,6 +21,9 @@ public:
 	virtual void ApplyUniforms(glm::mat4 modelMatrix) const = 0;
 	virtual std::string GetShaderFilePath() const = 0;
 
+	static void ClearCache() {
+		m_ShaderCache.clear();
+	}
 private:
 	static std::unordered_map<std::string, Shader*> m_ShaderCache;
 };

@@ -23,19 +23,21 @@ public:
 	Application();
 	~Application();
 
-	std::unique_ptr<Renderer> renderer;
+	std::shared_ptr<Renderer> renderer;
+	std::shared_ptr<Input> input;
+ 	const GLFWvidmode* videoMode;
+
 	int Run();
+
+	bool needRestart = false;
+	int WindowMsaaSamples = 0; //窗口全局的多重采样设置
 
 	float Time = 0.0;
 	float DeltaTime = 0.0;
 	float TargetFrameRate = 10000; // 目标帧率
 	int frameCount = 0;
 
-	Input* input;
-
 	bool AutoResizeViewportByWindow = true;
-
-	const GLFWvidmode* videoMode;
 
 	void ResetWindow(GLFWmonitor* monitor = nullptr, int refreshRate = GLFW_DONT_CARE, int width = 0, int height = 0) {
 		bool fullScreen = monitor != nullptr;

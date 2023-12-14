@@ -93,6 +93,7 @@ public:
 	int ViewportWidth;
 	int ViewportHeight;
 	float GetViewportAspect() { return (float)ViewportWidth / ViewportHeight; }
+	unsigned int multiSample = 0; //用于自定义的多重采样framebuffer
 
 	Camera camera;
 	mutable PrimitiveCountInfo primitiveCountInfo;
@@ -103,11 +104,12 @@ public:
 	int stepCountLimit = 1000000000;
 
 	//--------------------FrameBuffer-----------------------
-	bool enableFrameBuffer = true;
+	bool enablePostProcessing = true;
 	std::vector<std::shared_ptr<PostProcessingMaterial>> postProcessingMaterials;
-	std::shared_ptr<Framebuffer> currentFrameBuffer;
+	std::shared_ptr<Framebuffer> currentFrameBuffer; //空代表默认帧缓冲
 	std::shared_ptr<Framebuffer> frameBuffer1;
 	std::shared_ptr<Framebuffer> frameBuffer2;
+	std::shared_ptr<Framebuffer> multiSampleFrameBuffer;
 	float frameBuffer_quadVertices[4 * 6] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
 		// positions   // texCoords
 		-1.0f,  1.0f,  0.0f, 1.0f,
@@ -131,28 +133,36 @@ public:
 			frameBuffer_va->AddBuffer(vb, layout);
 		}
 		frameBuffer1 = std::make_shared<Framebuffer>();
-		frameBuffer1->Bind();
-
 		frameBuffer2 = std::make_shared<Framebuffer>();
-		frameBuffer2->Bind();
-		frameBuffer2->Unbind();
+		SetMultiSample(multiSample);
+	}
 
-		currentFrameBuffer = frameBuffer1;
+	void SetMultiSample(unsigned int multiSample)
+	{
+		this->multiSample = multiSample;
+		multiSampleFrameBuffer = multiSample == 0 ? nullptr : std::make_shared<Framebuffer>(multiSample);
 	}
+
 	void BindCurrentFrameBuffer() {
-		currentFrameBuffer->Bind();
+		if (currentFrameBuffer == nullptr)
+			Framebuffer::BindDefault();
+		else
+			currentFrameBuffer->Bind();
 		Clear();
-		SetDepthTestActive(false); //关闭自定义帧缓冲的深度测试，不关也没影响
 	}
-	void SwitchCurrentFrameBuffer() {
+	void BindMultiSampleFrameBuffer()
+	{
+		multiSampleFrameBuffer->Bind();
+		Clear();
+	}
+	void SwitchAnotherCustomFrameBuffer() {
 		if (currentFrameBuffer == frameBuffer1) currentFrameBuffer = frameBuffer2;
 		else currentFrameBuffer = frameBuffer1;
 		BindCurrentFrameBuffer();
 	}
-	void UnbindCurrentFrameBuffer() {
-		currentFrameBuffer->Unbind();
-		Clear();
-		SetDepthTestActive(true);
+	void SwitchDefaultFrameBuffer() {
+		currentFrameBuffer = nullptr;
+		BindCurrentFrameBuffer();
 	}
 	void DrawAllPostProcessing() {
 		int materialsCount = postProcessingMaterials.size();
@@ -173,11 +183,11 @@ public:
 			//若是最后一个后处理，或是最后两个渲染步骤，则渲染到屏幕
 			if (i == materialsCount - 1 || stepCount + 2 >= stepCountLimit)
 			{
-				UnbindCurrentFrameBuffer();
+				SwitchDefaultFrameBuffer();
 			}
 			else //否则渲染到自定义帧缓冲
 			{
-				SwitchCurrentFrameBuffer();
+				SwitchAnotherCustomFrameBuffer();
 			}
 
 			Draw(*frameBuffer_va, *material);
@@ -186,7 +196,13 @@ public:
 	}
 	bool HasPostProcessingToDraw() {
 		int postProcessingMaterialsCount = postProcessingMaterials.size();
-		return enableFrameBuffer && postProcessingMaterialsCount > 0 && stepCountLimit > stepCount - postProcessingMaterialsCount;
+		return enablePostProcessing && postProcessingMaterialsCount > 0 && stepCountLimit > stepCount - postProcessingMaterialsCount;
+	}
+	void BlitMultiSampleFramebufferToCurrentFrameBuffer() {
+		multiSampleFrameBuffer->BindRead();
+		if (currentFrameBuffer == nullptr) Framebuffer::BindDefaultDraw();
+		else currentFrameBuffer->BindDraw();
+		GLCALL(glBlitFramebuffer(0, 0, ViewportWidth, ViewportHeight, 0, 0, ViewportWidth, ViewportHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST));
 	}
 	//----------------------------------------------------
 

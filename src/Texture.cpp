@@ -1,6 +1,6 @@
+#include "Texture.h"
 #include <iostream>
 #include <format>
-#include "Texture.h"
 #include "stb_image.h"
 #include "GLCALL.h"
 
@@ -47,11 +47,6 @@ Texture::~Texture() {
 	std::cout << loadId << " Release texture(" << this->m_id << "): " << path << std::endl;
 	GLCALL(glDeleteTextures(1, &m_id));
 	free(data);
-}
-
-void Texture::GenerateMipmap()
-{
-	GLCALL(glGenerateMipmap(GL_TEXTURE_2D));
 }
 
 void Texture::SetPureColor(unsigned char r, unsigned char g, unsigned char b) {
@@ -124,7 +119,7 @@ void Texture::Load(const std::string& path, bool flip, bool generateMipmap) {
 
 	if (generateMipmap)
 	{
-		GenerateMipmap();
+		GLCALL(glGenerateMipmap(GL_TEXTURE_2D));
 		setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	}
 	else

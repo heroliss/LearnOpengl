@@ -162,6 +162,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\MultisampleTexture.cpp" />
     <ClCompile Include="src\GLCALL.cpp" />
     <ClCompile Include="src\Renderbuffer.cpp" />
     <ClCompile Include="src\Framebuffer.cpp" />
@@ -194,6 +195,7 @@
     <ClCompile Include="vendor\stb_image\stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\MultisampleTexture.h" />
     <ClInclude Include="res\Materials\PostProcess\ResizeViewportMaterial.h" />
     <ClInclude Include="res\Materials\PostProcess\Grayscale.h" />
     <ClInclude Include="res\Materials\PostProcess\InverseColor.h" />

@@ -1,4 +1,4 @@
-#include "TestClearColor.h"
+﻿#include "TestClearColor.h"
 #include "Application.h"
 #include "imgui.h"
 
@@ -27,9 +27,24 @@ namespace test {
 
 	void TestClearColor::OnImGuiRender()
 	{
+		auto app = Application::GetInstance();
 		if (ImGui::ColorEdit4("Clear Color", m_ClearColor))
 		{
 			Application::GetInstance()->renderer->SetClearColor(m_ClearColor, 4);
+		}
+
+		int logMassSamples = glm::log2((float)app->WindowMsaaSamples);
+		ImGui::SetNextItemWidth(200);
+		if (ImGui::SliderInt("Window MSAA", &logMassSamples, 0, 4, ""))
+		{
+			app->WindowMsaaSamples = logMassSamples == 0 ? 0 : glm::pow(2, logMassSamples);
+			app->needRestart = true;
+		}
+		ImGui::SameLine();
+		ImGui::Text(("x" + std::to_string(app->WindowMsaaSamples)).c_str());
+
+		if (app->needRestart) {
+			ImGui::TextColored(ImVec4(1, 0, 0, 1), "请关闭窗口重启以生效");
 		}
 	}
 }

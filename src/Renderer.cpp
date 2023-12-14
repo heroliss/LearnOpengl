@@ -71,11 +71,9 @@ int Renderer::Init()
 	//抗锯齿
 	GLCALL(glEnable(GL_MULTISAMPLE)); //(默认开启MSAA)
 
-	//初始化后处理用的自定义帧缓冲
-	if (frameBuffer_va == nullptr)
-	{
-		InitFrameBufferRendering();
-	}
+	//初始化后处理用的自定义帧缓冲 和 MASS用的多重采样帧缓冲
+	InitFrameBufferRendering();
+
 	return 0;
 }
 

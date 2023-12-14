@@ -334,12 +334,9 @@ namespace test {
 		//------------------------模型---------------------------
 		if (ImGui::CollapsingHeader("Model", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))
 		{
+			//模型选择
 			ImGui::SetNextItemWidth(100);
 			ImGui::Combo("##empty", &currentModelIndex, modelNames, IM_ARRAYSIZE(modelNames));
-			ImGui::SameLine();
-			ImGui::Checkbox("Show outline", &showOutline);
-			ImGui::SameLine();
-			ImGui::Checkbox("Show Skybox", &showSkybox);
 			//立方体模型设置
 			if (currentModelIndex == 0)
 			{
@@ -352,6 +349,7 @@ namespace test {
 			//小行星带模型设置
 			else if (currentModelIndex == 5)
 			{
+				ImGui::SameLine();
 				ImGui::SetNextItemWidth(60);
 				if (ImGui::DragInt("Asteroid Amount", (int*)&asteroidBeltAmount, 1, 0, 999999))
 				{
@@ -389,6 +387,35 @@ namespace test {
 				ImGui::SetItemTooltip("小行星带厚度（既y方向的厚度）");
 			}
 		}
+
+		//----------------------------渲染---------------------------------------
+		if (ImGui::CollapsingHeader("Model", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))
+		{
+			ImGui::Checkbox("Show Skybox", &showSkybox);
+			ImGui::SameLine();
+			ImGui::Checkbox("Show outline", &showOutline);
+			ImGui::SameLine();
+
+			//MSAA设置
+			int logMassSamples = glm::log2((float)app->renderer->multiSample);
+			//窗口开启了多采样并且没有后处理过程时（提前的自定义帧缓冲多采样结果会直接位块传送到默认帧缓冲），此时提前的自定义帧缓冲多采样数必须与默认帧缓冲采样数相等，或者默认帧缓冲不使用多重采样
+			//简单说就是两个多采样帧缓冲之间位块传送时必须采样数相等（若是一个多采样向另一个正常帧缓冲位块传送就没有限制）
+			if (app->WindowMsaaSamples > 0 && app->renderer->HasPostProcessingToDraw() == false)
+			{
+				ImGui::Text("MSAA x%d", app->WindowMsaaSamples);
+			}
+			else
+			{
+				ImGui::SetNextItemWidth(120);
+				if (ImGui::SliderInt("MSAA", &logMassSamples, 0, 4, ""))
+				{
+					app->renderer->SetMultiSample(logMassSamples == 0 ? 0 : glm::pow(2, logMassSamples));
+				}
+				ImGui::SameLine();
+				ImGui::Text(("x" + std::to_string(app->renderer->multiSample)).c_str());
+			}
+		}
+
 		//----------------------------调试---------------------------------------
 		if (ImGui::CollapsingHeader("Debug", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))
 		{
@@ -616,10 +643,14 @@ namespace test {
 		}
 
 		//-----------------------后处理------------------------------
+		bool postProcessDirty = false;
 		if (ImGui::CollapsingHeader("Post processing", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))
 		{
 			ImGui::SetItemTooltip("You can drag and drop to sort");
-			ImGui::Checkbox("Enable##Post-processing", &app->renderer->enableFrameBuffer);
+			if (ImGui::Checkbox("Enable##Post-processing", &app->renderer->enablePostProcessing))
+			{
+				postProcessDirty = true;
+			}
 			ImGui::SameLine(ImGui::GetWindowWidth() - 160.0f);
 			if (ImGui::BeginCombo("##AddMaterial", "Add Post-Processing", ImGuiComboFlags_WidthFitPreview | ImGuiComboFlags_NoArrowButton))
 			{
@@ -631,9 +662,9 @@ namespace test {
 					{
 						auto ptr = std::shared_ptr<PostProcessingMaterial>(material->CreateObject());
 						app->renderer->postProcessingMaterials.push_back(ptr);
+						postProcessDirty = true;
 					}
 				}
-
 				ImGui::EndCombo();
 			}
 
@@ -644,6 +675,7 @@ namespace test {
 				if (ImGui::Button(("X" + idText).c_str()))
 				{
 					app->renderer->postProcessingMaterials.erase(app->renderer->postProcessingMaterials.begin() + i); //删除一个后处理材质
+					postProcessDirty = true;
 					break;
 				}
 
@@ -661,6 +693,7 @@ namespace test {
 						int index = *static_cast<const int*>(payload->Data);
 						if (index != i) {
 							std::swap(app->renderer->postProcessingMaterials[index], app->renderer->postProcessingMaterials[i]);
+							postProcessDirty = true;
 						}
 					}
 					ImGui::EndDragDropTarget();
@@ -668,7 +701,12 @@ namespace test {
 
 				material->DrawImgui(i);
 			}
+		}
 
+		//后处理发生变化后，如果窗口多采样已开启，并且没有后处理过程，则需要关闭预先多采样，以防止预先多采样和窗口多采样采样数不一致导致的崩溃问题
+		if (postProcessDirty && app->WindowMsaaSamples > 0 && app->renderer->HasPostProcessingToDraw() == false)
+		{
+			app->renderer->SetMultiSample(0);
 		}
 	}
 }
