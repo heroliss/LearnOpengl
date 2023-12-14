@@ -389,7 +389,7 @@ namespace test {
 		}
 
 		//----------------------------渲染---------------------------------------
-		if (ImGui::CollapsingHeader("Model", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))
+		if (ImGui::CollapsingHeader("Render", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))
 		{
 			ImGui::Checkbox("Show Skybox", &showSkybox);
 			ImGui::SameLine();
