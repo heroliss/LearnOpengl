@@ -39,7 +39,9 @@ public:
 	/// +Z (front) 
 	/// -Z (back)
 	/// </summary>
-	void Load(std::vector<std::string> faces) {
+	void Load(std::vector<std::string> faces, bool sRGB) {
+		sRGB = sRGB && Texture::enableSRGB; //调试用
+
 		std::cout << "Load cubemap(" << this->m_id << "):" << std::endl;
 		Bind();
 		this->faces = faces;
@@ -52,25 +54,32 @@ public:
 			if (data)
 			{
 				GLenum format = GL_NONE;
+				GLenum innerFormat;
 				switch (channels) {
 				case 1:
 					format = GL_RED;
+					innerFormat = GL_RED;
+					if (sRGB) std::cout << "单通道如何设置sRGB格式？" << std::endl; //TODO
 					break;
 				case 2:
 					format = GL_RG;
+					innerFormat = GL_RG;
+					if (sRGB) std::cout << "两通道如何设置sRGB格式？" << std::endl; //TODO
 					break;
 				case 3:
 					format = GL_RGB;
+					innerFormat = sRGB ? GL_SRGB : GL_RGB;
 					break;
 				case 4:
 					format = GL_RGBA;
+					innerFormat = sRGB ? GL_SRGB_ALPHA : GL_RGBA;
 					break;
 				default:
 					std::cout << "Load texture \"" << path << "\" have unexpected number of channels: " << channels << std::endl;
 					break;
 				}
 				if (format != GL_NONE)
-					glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+					glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, innerFormat, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 			}
 			else
 			{

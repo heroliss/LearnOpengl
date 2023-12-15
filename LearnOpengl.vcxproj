@@ -195,6 +195,7 @@
     <ClCompile Include="vendor\stb_image\stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="res\Materials\PostProcess\GammaCorrection.h" />
     <ClInclude Include="src\MultisampleTexture.h" />
     <ClInclude Include="res\Materials\PostProcess\ResizeViewportMaterial.h" />
     <ClInclude Include="res\Materials\PostProcess\Grayscale.h" />

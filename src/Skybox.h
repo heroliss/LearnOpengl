@@ -76,12 +76,6 @@ public:
 		VertexBufferLayout layout;
 		layout.Push<float>(3);
 		va->AddBuffer(vb, layout);
-
-		cubemap = std::make_shared<Cubemap>();
-		cubemap->Load(faces);
-
-		material = std::make_shared<SkyboxMaterial>();
-		material->cubemap = cubemap;
 	}
 
 	~Skybox() {
@@ -93,4 +87,12 @@ public:
 	}
 
 	std::shared_ptr<Cubemap> GetCubemap() { return cubemap; }
+
+	void LoadDefaultCubemap() {
+		cubemap = std::make_shared<Cubemap>();
+		cubemap->Load(faces, true);
+
+		material = std::make_shared<SkyboxMaterial>();
+		material->cubemap = cubemap;
+	}
 };

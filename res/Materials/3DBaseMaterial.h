@@ -54,7 +54,7 @@ public:
 		shader->SetUniform3f("u_specularColor", SpecularColor.r, SpecularColor.g, SpecularColor.b);
 		shader->SetUniform1f("u_shininess", Shininess);
 		shader->SetUniform3f("u_viewPos", viewPos.x, viewPos.y, viewPos.z);
-		
+
 		//纹理贴图
 		shader->SetUniform1i("u_mainTexture", 0);
 		if (MainTexture != nullptr) MainTexture->SetUnit(0); else MainTexture->UnsetUnit(0);
@@ -125,7 +125,7 @@ public:
 		else {
 			//SpecularColor = glm::vec3(1);
 			mat->GetTexture(aiTextureType_SPECULAR, 0, &texturePath);
-			SpecularTexture = Texture::Get(directory + texturePath.C_Str());
+			SpecularTexture = Texture::Get(directory + texturePath.C_Str(), false, false);
 			//std::cout << "Apply specular texture: " << SpecularTexture->path << std::endl;
 		}
 
@@ -136,7 +136,7 @@ public:
 		}
 		else {
 			mat->GetTexture(aiTextureType_HEIGHT, 0, &texturePath);
-			NormalTexture = Texture::Get(directory + texturePath.C_Str());
+			NormalTexture = Texture::Get(directory + texturePath.C_Str(), false, false);
 			//std::cout << std::format("aiMaterial({}): Apply normal texture: {}\n", mat->GetName().C_Str(), NormalTexture->GetPath());
 		}
 

@@ -251,5 +251,8 @@
     <ClInclude Include="src\MultisampleTexture.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="res\Materials\PostProcess\GammaCorrection.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

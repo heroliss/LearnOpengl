@@ -89,6 +89,9 @@ namespace test {
 		singleColorMaterial = std::make_unique<SingleColorMaterial>();
 		texcoordDisplayMaterial = std::make_unique<TexcoordDisplayMaterial>();
 
+		//加载天空盒立方体贴图
+		skybox.LoadDefaultCubemap();
+
 		/*va->UnBind();
 		vb->Unbind();
 		ib->Unbind();*/
@@ -137,14 +140,11 @@ namespace test {
 		if (currentModelIndex == 0)
 		{
 			//设置立方体的贴图
+			CommonMaterialSetting(mainMaterial);
 			mainMaterial->MainTexture = enableMainTexture ? Texture::Get("res/textures/brickwall.jpg") : Texture::Get(255, 255, 255);
-			mainMaterial->NormalTexture = enableNormalTexture ? Texture::Get("res/textures/brickwall_normal.jpg") : Texture::Get(128, 128, 255);
-			mainMaterial->SpecularTexture = enableSpecularTexture ? Texture::Get("res/textures/dog.jpg") : Texture::Get(255, 255, 255);
+			mainMaterial->NormalTexture = enableNormalTexture ? Texture::Get("res/textures/brickwall_normal.jpg", false, false) : Texture::Get(128, 128, 255);
+			mainMaterial->SpecularTexture = enableSpecularTexture ? Texture::Get("res/textures/dog.jpg", false, false) : Texture::Get(255, 255, 255);
 			mainMaterial->HeightTexture = nullptr;
-			mainMaterial->cubemap = showSkybox ? skybox.GetCubemap() : nullptr; //设置环境立方体贴图
-			//设置是否显示深度
-			mainMaterial->showDepth = showDepth;
-			mainMaterial->showDepthRange = showDepthRange;
 			//设置模型矩阵
 			glm::mat4 modelMatrix = GetCurrentModelMatrix();//中心立方体的旋转由input控制
 			//添加中心立方体绘制
@@ -173,10 +173,7 @@ namespace test {
 			for (int j = 0; j < model->meshes.size(); j++)
 			{
 				auto mesh = &model->meshes[j];
-				auto material = std::make_shared<BaseMaterial3D>(); //每帧新建材质(可优化)，每个mesh可能有不同的贴图设置
-				//从网格信息中设置贴图和颜色
-				material->SetFromAiMaterial(mesh->mat, model->directory, enableNormalTexture, enableMainTexture, enableSpecularTexture);
-				SetMaterialSameAsMainMaterial(material);
+				auto material = CreateModelMaterial(model.get(), mesh);
 				AddToDrawList(*mesh->va, material, modelMatrix, mesh->ib.get());
 			}
 
@@ -187,10 +184,7 @@ namespace test {
 				for (int j = 0; j < rockModel->meshes.size(); j++)
 				{
 					auto mesh = &rockModel->meshes[j];
-					auto material = std::make_shared<BaseMaterial3D>(); //每帧新建材质(可优化)，每个mesh可能有不同的贴图设置
-					//从网格信息中设置贴图和颜色
-					material->SetFromAiMaterial(mesh->mat, rockModel->directory, enableNormalTexture, enableMainTexture, enableSpecularTexture);
-					SetMaterialSameAsMainMaterial(material);
+					auto material = CreateModelMaterial(rockModel.get(), mesh);
 					AddToDrawList(*mesh->va, material, glm::mat4(0), mesh->ib.get(), asteroidBeltAmount);
 				}
 				//小行星公转
@@ -337,6 +331,15 @@ namespace test {
 			//模型选择
 			ImGui::SetNextItemWidth(100);
 			ImGui::Combo("##empty", &currentModelIndex, modelNames, IM_ARRAYSIZE(modelNames));
+			//sRGB
+			ImGui::SameLine();
+			if (ImGui::Checkbox("sRGB", &Texture::enableSRGB))
+			{
+				//需要重新加载贴图
+				Texture::ClearCache();
+				//重新加载天空盒立方体贴图
+				skybox.LoadDefaultCubemap();
+			}
 			//立方体模型设置
 			if (currentModelIndex == 0)
 			{

@@ -10,6 +10,8 @@ const static int errorTextureWidth = 16; //TODO: 为什么必须是4的整数被
 const static int errorTextureChannels = 3;
 static char errorTextureData[errorTextureWidth * errorTextureWidth * errorTextureChannels];
 static bool errorTextureInited = false;
+
+bool Texture::enableSRGB;
 void Texture::Init()
 {
 	GLCALL(glGenTextures(1, &m_id));
@@ -70,7 +72,9 @@ void Texture::SetPureColor(unsigned char r, unsigned char g, unsigned char b) {
 /// 仅加载贴图，不会缓存
 /// </summary>
 /// <param name="path"></param>
-void Texture::Load(const std::string& path, bool flip, bool generateMipmap) {
+void Texture::Load(const std::string& path, bool flip, bool sRGB, bool generateMipmap) {
+	sRGB = sRGB && enableSRGB; //调试用
+
 	loadCount++; //调试用
 	loadId = loadCount;
 	std::cout << loadId << " Load texture(" << this->m_id << "):    " << path << std::endl;
@@ -96,18 +100,25 @@ void Texture::Load(const std::string& path, bool flip, bool generateMipmap) {
 	}
 
 	GLenum format;
+	GLenum innerFormat;
 	switch (channels) {
 	case 1:
 		format = GL_RED;
+		innerFormat = GL_RED;
+		if (sRGB) std::cout << "单通道如何设置sRGB格式？" << std::endl; //TODO
 		break;
 	case 2:
 		format = GL_RG;
+		innerFormat = GL_RG;
+		if (sRGB) std::cout << "两通道如何设置sRGB格式？" << std::endl; //TODO
 		break;
 	case 3:
 		format = GL_RGB;
+		innerFormat = sRGB ? GL_SRGB : GL_RGB;
 		break;
 	case 4:
 		format = GL_RGBA;
+		innerFormat = sRGB ? GL_SRGB_ALPHA : GL_RGBA;
 		break;
 	default:
 		std::cout << "Load texture \"" << path << "\" have unexpected number of channels: " << channels << std::endl;
@@ -115,7 +126,7 @@ void Texture::Load(const std::string& path, bool flip, bool generateMipmap) {
 	}
 
 	bind();
-	GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data));
+	GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, innerFormat, width, height, 0, format, GL_UNSIGNED_BYTE, data));
 
 	if (generateMipmap)
 	{
@@ -174,12 +185,12 @@ std::shared_ptr<Texture> Texture::Get(unsigned char r, unsigned char g, unsigned
 /// <param name="path"></param>
 /// <param name="flip"></param>
 /// <returns></returns>
-std::shared_ptr<Texture> Texture::Get(const std::string& path, bool flip, bool generateMipmap)
+std::shared_ptr<Texture> Texture::Get(const std::string& path, bool flip, bool sRGB, bool generateMipmap)
 {
 	std::shared_ptr<Texture> texture;
 	if (FindOrCreate(path, texture) == false)
 	{
-		texture->Load(path, flip, generateMipmap);
+		texture->Load(path, flip, sRGB, generateMipmap);
 	}
 	return texture;
 }

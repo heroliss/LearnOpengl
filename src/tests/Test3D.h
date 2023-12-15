@@ -17,6 +17,7 @@
 #include "../res/Materials/PostProcess/InverseColor.h"
 #include "../res/Materials/PostProcess/Grayscale.h"
 #include "../res/Materials/PostProcess/KernelEffect.h"
+#include "../res/Materials/PostProcess/GammaCorrection.h"
 
 #include "Model.h"
 #include "Skybox.h"
@@ -78,15 +79,12 @@ namespace test {
 			std::make_shared<Grayscale>(),
 			std::make_shared<InverseColor>(),
 			std::make_shared<ResizeViewportMaterial>(),
+			std::make_shared<GammaCorrection>(),
 		};
 
 		//比较笨的办法来让面板上的材质设置对所有物体生效
 		void SetMaterialSameAsMainMaterial(std::shared_ptr<BaseMaterial3D> material) {
-			//设置是否显示深度
-			material->showDepth = showDepth;
-			material->showDepthRange = showDepthRange;
 			//调试用：跟随主材质设置
-			material->cubemap = mainMaterial->cubemap;
 			material->IsTransparent = mainMaterial->IsTransparent;
 			material->ObjectColor = mainMaterial->ObjectColor;
 			material->Ambient = mainMaterial->Ambient;
@@ -97,6 +95,24 @@ namespace test {
 			material->enableRefract = mainMaterial->enableRefract;
 			material->refractColor = mainMaterial->refractColor;
 			material->refractiveIndex = mainMaterial->refractiveIndex;
+		}
+
+		//通用材质设置
+		void CommonMaterialSetting(std::shared_ptr<BaseMaterial3D> material) {
+			//设置环境立方体贴图
+			material->cubemap = showSkybox ? skybox.GetCubemap() : nullptr;
+			//设置是否显示深度
+			material->showDepth = showDepth;
+			material->showDepthRange = showDepthRange;
+		}
+
+		std::shared_ptr<BaseMaterial3D> CreateModelMaterial(const Model* model, const Mesh* mesh) {
+			auto material = std::make_shared<BaseMaterial3D>(); //每帧新建材质(可优化)，每个mesh可能有不同的贴图设置
+			//从网格信息中设置贴图和颜色
+			material->SetFromAiMaterial(mesh->mat, model->directory, enableNormalTexture, enableMainTexture, enableSpecularTexture);
+			SetMaterialSameAsMainMaterial(material);
+			CommonMaterialSetting(material);
+			return material;
 		}
 
 		//模型相关
