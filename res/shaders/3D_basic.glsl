@@ -1,7 +1,7 @@
 ﻿##common
 #version 450 core
 // 光照类型定义
-#define MAX_LIGHT_COUNT 8   //TODO: 这个值为什么不能太大？会导致program链接失败？
+#define MAX_LIGHT_COUNT 12
 #define NONE_LIGHT 0
 #define PARALLEL_LIGHT 1
 #define POINT_LIGHT 2
@@ -9,28 +9,40 @@
 struct Light
 {
     int type;
+    bool useBlinnPhong;
+    float brightness;
     vec3 pos; //光源位置 (平行光无用)
     vec3 direction; //照射方向（点光源无用）
     vec3 color;
     vec3 attenuation; //衰减系数 （分别为常数项、一次项、二次项系数 , 一般常数项固定为1，主要调二次项系数）
     vec2 cutoffAngle; //聚光范围 (内圈和外圈，度数表示，仅聚光类型有用)
-    int useBlinnPhong;
+//    sampler2D shadowMap;
+//    samplerCube shadowCubeMap;
+};
+
+layout(binding = 1, std140) uniform Lights
+{
+    int u_lightNum;
+    Light u_lights[MAX_LIGHT_COUNT];
+};
+
+layout(binding = 0, std140) uniform Matrices
+{
+    mat4 u_View;
+    mat4 u_Projection;
 };
 
 
 ##shader vertex
+uniform mat4 u_Model;
+uniform vec3 u_viewPos;
+
 in vec3 position;
 in vec3 normal;
 in vec2 texCoord;
 in vec3 tangent;
 in vec3 bitangent;
 in mat4 instanceMatrix;
-
-uniform mat4 u_Model;
-uniform mat4 u_View;
-uniform mat4 u_Projection;
-uniform vec3 u_viewPos;
-uniform Light u_lights[MAX_LIGHT_COUNT];
 
 out vec2 v_TexCoord;
 out vec4 v_PosColor;
@@ -64,7 +76,7 @@ void main()
     mat3 inversedTBN = transpose(TBN); //世界空间转切线空间
     v_TangentViewPos  = inversedTBN * u_viewPos;
     v_TangentFragPos  = inversedTBN * vec3(worldPos);
-    for (int i = 0; i < MAX_LIGHT_COUNT; i++)
+    for (int i = 0; i < u_lightNum; i++)
     {
         v_TangentLightPos[i] = inversedTBN * u_lights[i].pos;
         v_TangentLightDir[i] = inversedTBN * normalize(u_lights[i].direction);
@@ -80,7 +92,6 @@ uniform vec3 u_emission_inside; //内部自发光
 uniform vec3 u_emission_outside; //外部自发光
 uniform vec3 u_specularColor; //高光反射颜色
 uniform float u_shininess; //高光反射范围（光泽度）
-uniform Light u_lights[MAX_LIGHT_COUNT];
 
 uniform sampler2D u_mainTexture; //主贴图
 uniform sampler2D u_normalTexture; //法线贴图
@@ -90,7 +101,6 @@ uniform samplerCube u_cubemap; //环境立方体贴图
 
 uniform bool u_showDepth;
 uniform vec2 u_showDepthRange;
-uniform mat4 u_Projection;
 
 uniform bool u_enableRefract;//开启折射（目前仅支持折射天空盒，此时透明度恒为1）
 uniform vec3 u_refractColor; //折射颜色
@@ -171,14 +181,14 @@ void main()
     
 
     vec3 allLightsColor = vec3(0.0);
-    for (int i = 0; i < MAX_LIGHT_COUNT; i++)
+    for (int i = 0; i < u_lightNum; i++)
     {
         Light light = u_lights[i];
         vec3 lightDir; //光照方向的反方向(指向光源的方向)
         float lightDistance; //记录光源距离
         float intensity = 1;
         
-        if (light.type == NONE_LIGHT || light.color == vec3(0)) //跳过无亮度的光照
+        if (light.type == NONE_LIGHT || light.color == vec3(0) || light.brightness <= 0) //跳过无亮度的光照
         {
             continue;
         }
@@ -210,22 +220,22 @@ void main()
         if(dot(vec3(0,0,1), lightDir) > 0.0) //TOOD:自己乱加的：用于解决加了法线贴图后背面被照亮的问题
         {
             //漫反射
-            vec3 diffuse = max(dot(norm, lightDir), 0.0) * light.color;
+            vec3 diffuse = max(dot(norm, lightDir), 0.0) * light.color * light.brightness;
     
             //高光反射
             float specularStrength;
-            if(light.useBlinnPhong == 0){
-                //Phong
-                vec3 reflectDir = reflect(-lightDir, norm);
-                specularStrength = pow(max(dot(viewDir, reflectDir), 0.0), u_shininess);
-            }
-            else {
+            if(light.useBlinnPhong){
                 //Blinn-Phong
                 vec3 midDir = normalize(viewDir + lightDir);
                 specularStrength = pow(max(dot(midDir, norm), 0.0), u_shininess);
             }
+            else {
+                //Phong
+                vec3 reflectDir = reflect(-lightDir, norm);
+                specularStrength = pow(max(dot(viewDir, reflectDir), 0.0), u_shininess);
+            }
 
-            vec3 specular = u_specularColor * specularStrength * light.color * specularTexColor;
+            vec3 specular = u_specularColor * specularStrength * specularTexColor * light.color * light.brightness;
     
             //衰减
             float attenuation = 1.0 / (light.attenuation[0] + light.attenuation[1] * lightDistance + light.attenuation[2] * (lightDistance * lightDistance));

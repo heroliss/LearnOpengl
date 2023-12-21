@@ -9,7 +9,9 @@
 #include "Light.h"
 #include "Framebuffer.h"
 #include "PostProcessingMaterial.h"
+#include "UniformBuffer.h"
 #include <map>
+#include "glm/gtc/type_ptr.hpp"
 
 struct PrimitiveCountInfo
 {
@@ -102,6 +104,17 @@ public:
 	mutable int clearCount = 0;
 	int postProcessCount = 0;
 	int stepCountLimit = 1000000000;
+
+	//-------------------UniformBuffer----------------------
+	std::shared_ptr<UniformBuffer> matricesUniformBuffer;
+	std::shared_ptr<UniformBuffer> lightsUniformBuffer;
+	void InitUniformBuffers() {
+		//视图矩阵和投影矩阵
+		matricesUniformBuffer = std::make_shared<UniformBuffer>(nullptr, sizeof(glm::mat4) * 2);
+		matricesUniformBuffer->BindPoint(0/*, sizeof(glm::mat4) * 2, 0  这里后两个参数可以省略*/);
+		lightsUniformBuffer = std::make_shared<UniformBuffer>(nullptr, 16 + Light::GetSize() * MAX_LIGHT_COUNT);
+		lightsUniformBuffer->BindPoint(1);
+	}
 
 	//--------------------FrameBuffer-----------------------
 	bool enablePostProcessing = true;
@@ -229,6 +242,18 @@ public:
 	std::shared_ptr<Light> AddLight() {
 		auto light = std::make_shared<Light>();
 		lights.push_back(light);
+		int lightsNum = lights.size();
+		lightsUniformBuffer->SetData(&lightsNum, 4, 0);
+		lightsUniformBuffer->SetData(light->GetData(), Light::GetSize(), 16 + (lightsNum - 1) * Light::GetSize());
+
+		//std::cout << offsetof(Light, type) << std::endl;
+		//std::cout << offsetof(Light, useBlinnPhong) << std::endl;
+		//std::cout << offsetof(Light, pos) << std::endl;
+		//std::cout << offsetof(Light, direction) << std::endl;
+		//std::cout << offsetof(Light, color) << std::endl;
+		//std::cout << offsetof(Light, attenuation) << std::endl;
+		//std::cout << offsetof(Light, cutoffAngle) << std::endl;
+
 		return light;
 	}
 
@@ -240,8 +265,22 @@ public:
 		lights.clear();
 	}
 
+	void ApplyLights() {
+		int lightsNum = lights.size();
+		lightsUniformBuffer->SetData(&lightsNum, 4, 0);
+		for (int i = 0; i < lightsNum; i++)
+		{
+			auto light = lights[i];
+			lightsUniformBuffer->SetData(light->GetData(), Light::GetSize(), 16 + i * Light::GetSize());
+		}
+	}
+
 	void ResetCamera() {
 		camera = Camera();
+		camera.ViewMatrixChangedEvent.AddHandler([this](glm::mat4 ViewMatrix) {
+			matricesUniformBuffer->SetData(glm::value_ptr(ViewMatrix), sizeof(glm::mat4), 0); });
+		camera.ProjectionMatrixChangedEvent.AddHandler([this](glm::mat4 ProjectionMatrix) {
+			matricesUniformBuffer->SetData(glm::value_ptr(ProjectionMatrix), sizeof(glm::mat4), sizeof(glm::mat4)); });
 		camera.aspect = GetViewportAspect();
 		camera.UpdateOrthoRectByViewport(ViewportWidth, ViewportHeight);
 		camera.UpdateProjectionMatrix();

@@ -24,26 +24,3 @@ Shader* Material::GetShader() const
 		return shader;
 	}
 }
-
-void Material::ApplyMVPUniforms(glm::mat4 modelMatrix) const
-{
-	Shader* shader = GetShader();
-	auto camera = Application::GetInstance()->renderer->camera;
-	shader->SetUniformMat4f("u_Model", modelMatrix);
-	shader->SetUniformMat4f("u_View", camera.ViewMatrix);
-	shader->SetUniformMat4f("u_Projection", camera.ProjectionMatrix);
-}
-
-void Material::ApplyAllLightUniforms() const
-{
-	Shader* shader = GetShader();
-	std::vector<std::shared_ptr<Light>>& lights = Application::GetInstance()->renderer->lights;
-	int i;
-	for (i = 0; i < lights.size(); i++) {
-		lights[i]->SetToShader(shader, i);
-	}
-	for (; i < MAX_LIGHT_COUNT; i++)
-	{
-		Light::RemoveLight(shader, i);
-	}
-}

@@ -1,6 +1,8 @@
-﻿##shader vertex
+﻿##common
 #version 450 core
 
+
+##shader vertex
 layout (location = 0) in vec4 aPos;
 
 uniform mat4 u_Model;
@@ -13,10 +15,8 @@ void main()
 
 
 ##shader geometry
-#version 450 core
-
 // 光照类型定义(从3D_basic.shader复制来的)
-#define MAX_LIGHT_COUNT 16
+#define MAX_LIGHT_COUNT 12
 #define NONE_LIGHT 0
 #define PARALLEL_LIGHT 1
 #define POINT_LIGHT 2
@@ -24,6 +24,8 @@ void main()
 struct Light
 {
     int type;
+    bool useBlinnPhong;
+    float brightness;
     vec3 pos; //光源位置 (平行光无用)
     vec3 direction; //照射方向（点光源无用）
     vec3 color;
@@ -31,14 +33,21 @@ struct Light
     vec2 cutoffAngle; //聚光范围 (内圈和外圈，度数表示，仅聚光类型有用)
 };
 
-layout (points) in;
-layout (line_strip, max_vertices = 27) out;
+layout(points) in;
+layout(line_strip, max_vertices = 27) out;
 
-uniform mat4 u_View;
-uniform mat4 u_Projection;
+layout(binding = 0, std140) uniform Matrices
+{
+    mat4 u_View;
+    mat4 u_Projection;
+};
+layout(binding = 1, std140) uniform Lights
+{
+    int u_lightNum;
+    Light u_lights[MAX_LIGHT_COUNT];
+};
 
 uniform int u_lightIndex;
-uniform Light u_lights[MAX_LIGHT_COUNT];
 uniform float u_size;
 
 out vec4 gs_Color;
@@ -154,8 +163,6 @@ void main()
 
 
 ##shader fragment
-#version 450 core
-
 in vec4 gs_Color;
 
 layout(location = 0) out vec4 outColor;

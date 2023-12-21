@@ -12,6 +12,7 @@
 #include "../res/Materials/LightDisplayMaterial.h" //载入材质的象征性做法
 #include "../res/Materials/SingleColorMaterial.h" //载入材质的象征性做法
 #include "../res/Materials/TexcoordDisplayMaterial.h" //载入材质的象征性做法
+#include "../res/Materials/SimpleDepthMaterial.h" //载入材质的象征性做法
 
 #include "../res/Materials/PostProcess/ResizeViewportMaterial.h"
 #include "../res/Materials/PostProcess/InverseColor.h"
@@ -44,6 +45,8 @@ namespace test {
 		std::unique_ptr<SingleColorMaterial> singleColorMaterial;
 		std::unique_ptr<SingleColorMaterial> zeroColorMaterial;
 		std::unique_ptr<TexcoordDisplayMaterial> texcoordDisplayMaterial;
+		std::unique_ptr<SimpleDepthMaterial> simpleDepthMaterial;
+
 		bool showDepth;
 		glm::vec2 showDepthRange = glm::vec2(1, 500); //预设的深度图范围
 		bool showSkybox;
@@ -161,6 +164,7 @@ namespace test {
 			//公转角速度公式：ω = √(G * M / r ^ 3)
 			srand(0); //固定随机数序列
 			float deltaTime = Application::GetInstance()->DeltaTime;
+			//#pragma omp parallel for //这个并行循环开启后，下面的rand取值顺序不再固定，所以自转会乱转。 另外经简单测试，在debug和release模式下，开不开都没什么区别。 但release比debug要快得多
 			for (int i = 0; i < asteroidBeltAmount; i++)
 			{
 				//公转

@@ -3,6 +3,7 @@
 #include "glm/ext/matrix_clip_space.hpp"
 #include "IOnInspectorGUI.h"
 #include <algorithm>
+#include "Event.h"
 
 struct Camera : IOnInspectorGUI {
 	glm::mat4 ViewMatrix = glm::mat4(1.0f);
@@ -22,6 +23,10 @@ struct Camera : IOnInspectorGUI {
 	float orthoRatio;
 	glm::vec4 orthoRect;
 
+
+	Event<glm::mat4> ProjectionMatrixChangedEvent;
+	Event<glm::mat4> ViewMatrixChangedEvent;
+
 	bool orthoGraphicIndividualSetting;
 	glm::mat4 lerpMat4(glm::mat4& a, glm::mat4& b, float t) {
 		return a + (b - a) * t;
@@ -36,11 +41,13 @@ struct Camera : IOnInspectorGUI {
 		float t = (1 - 1 / orthoRatio) * 0.002 + 1; //这个参数t的值是经测试取到变化最大的范围
 		if (t < 0) t = 0;
 		ProjectionMatrix = lerpMat4(ProjectionMatrix_perspective, ProjectionMatrix_ortho, t);
+		ProjectionMatrixChangedEvent.Invoke(ProjectionMatrix);
 	}
 
 	void UpdateViewMatrix()
 	{
 		ViewMatrix = glm::lookAt(position, position + direction, up);
+		ViewMatrixChangedEvent.Invoke(ViewMatrix);
 	}
 
 	void UpdateOrthoRectByViewport(int viewportWidth, int viewportHeight) {

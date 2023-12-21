@@ -20,9 +20,9 @@ public:
 	}
 	void ApplyUniforms(glm::mat4 modelMatrix) const override
 	{
-		ApplyMVPUniforms(modelMatrix);
-
 		auto shader = GetShader();
+		shader->SetUniformMat4f("u_Model", modelMatrix);
+
 		shader->SetUniform1f("size", size);
 		shader->SetUniform1i("showVertexNormal", showVertexNormal);
 		shader->SetUniform1i("showFragmentNormal", showFragmentNormal);

@@ -121,6 +121,9 @@ start:
 			DeltaTime = currentTime - Time;
 			Time = currentTime;
 
+			//应用光照数据
+			renderer->ApplyLights();
+
 			//处理输入
 			glfwPollEvents();
 			input->processInput(window);

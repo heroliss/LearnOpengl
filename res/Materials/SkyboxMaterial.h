@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include "Material.h"
 #include <Texture.h>
@@ -18,8 +18,8 @@ public:
 		auto shader = GetShader();
 		auto camera = Application::GetInstance()->renderer->camera;
 
-		shader->SetUniformMat4f("u_View", glm::mat4(glm::mat3(camera.ViewMatrix))); //Ö»±£ÁôÊÓÍ¼¾ØÕóµÄÐý×ª²¿·Ö
-		shader->SetUniformMat4f("u_Projection", camera.ProjectionMatrix_perspective); //ÎÞÂÛÈçºÎÊ¹ÓÃÍ¸ÊÓÍ¶Ó°¾ØÕó
+		shader->SetUniformMat4f("u_View", glm::mat4(glm::mat3(camera.ViewMatrix))); //åªä¿ç•™è§†å›¾çŸ©é˜µçš„æ—‹è½¬éƒ¨åˆ†
+		shader->SetUniformMat4f("u_Projection", camera.ProjectionMatrix_perspective); //æ— è®ºå¦‚ä½•ä½¿ç”¨é€è§†æŠ•å½±çŸ©é˜µ
 
 
 		shader->SetUniform1i("cubemap", 0);

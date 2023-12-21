@@ -43,10 +43,9 @@ public:
 
 	void ApplyUniforms(glm::mat4 modelMatrix) const override
 	{
-		ApplyMVPUniforms(modelMatrix);
-		ApplyAllLightUniforms();
-
 		auto shader = GetShader();
+		shader->SetUniformMat4f("u_Model", modelMatrix);
+
 		shader->SetUniform4f("u_objectColor", ObjectColor.r, ObjectColor.g, ObjectColor.b, ObjectColor.a);
 		shader->SetUniform3f("u_ambient", Ambient.r, Ambient.g, Ambient.b);
 		shader->SetUniform3f("u_emission_inside", Emission_inside.r, Emission_inside.g, Emission_inside.b);

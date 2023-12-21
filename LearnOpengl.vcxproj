@@ -117,6 +117,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <AdditionalOptions>/utf-8</AdditionalOptions>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -144,6 +145,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <AdditionalOptions>/utf-8</AdditionalOptions>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -162,6 +164,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\DepthFramebuffer.cpp" />
     <ClCompile Include="src\MultisampleTexture.cpp" />
     <ClCompile Include="src\GLCALL.cpp" />
     <ClCompile Include="src\Renderbuffer.cpp" />
@@ -181,6 +184,7 @@
     <ClCompile Include="src\tests\TestClearColor.cpp" />
     <ClCompile Include="src\tests\TestTexture2D.cpp" />
     <ClCompile Include="src\Texture.cpp" />
+    <ClCompile Include="src\UniformBuffer.cpp" />
     <ClCompile Include="src\VertexArray.cpp" />
     <ClCompile Include="src\VertexBuffer.cpp" />
     <ClCompile Include="src\VertexBufferLayout.cpp" />
@@ -196,6 +200,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="res\Materials\PostProcess\GammaCorrection.h" />
+    <ClInclude Include="res\Materials\SimpleDepthMaterial.h" />
+    <ClInclude Include="src\DepthFramebuffer.h" />
+    <ClInclude Include="src\Event.h" />
     <ClInclude Include="src\MultisampleTexture.h" />
     <ClInclude Include="res\Materials\PostProcess\ResizeViewportMaterial.h" />
     <ClInclude Include="res\Materials\PostProcess\Grayscale.h" />
@@ -232,6 +239,7 @@
     <ClInclude Include="src\tests\TestClearColor.h" />
     <ClInclude Include="src\tests\TestTexture2D.h" />
     <ClInclude Include="src\Texture.h" />
+    <ClInclude Include="src\UniformBuffer.h" />
     <ClInclude Include="src\VertexArray.h" />
     <ClInclude Include="src\VertexBuffer.h" />
     <ClInclude Include="src\VertexBufferLayout.h" />

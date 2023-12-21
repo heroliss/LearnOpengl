@@ -7,8 +7,11 @@ layout(location = 2) in vec4 posColor;
 layout(location = 3) in float texIndex;
 
 uniform mat4 u_Model;
-uniform mat4 u_View;
-uniform mat4 u_Projection;
+layout(binding = 0, std140) uniform Matrices
+{
+    mat4 u_View;
+    mat4 u_Projection;
+};
 uniform float u_TrapezoidFactor;
 
 out vec2 v_TexCoord;

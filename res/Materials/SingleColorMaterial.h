@@ -14,9 +14,9 @@ public:
 	}
 	void ApplyUniforms(glm::mat4 modelMatrix) const override
 	{
-		ApplyMVPUniforms(modelMatrix);
-
 		auto shader = GetShader();
+		shader->SetUniformMat4f("u_Model", modelMatrix);
+
 		shader->SetUniform4f("u_singleColor", color.r, color.g, color.b, color.a);
 	}
 };

@@ -188,12 +188,15 @@ unsigned int Shader::CreateShader(ShaderProgramSources& sources)
 	GLCALL(glGetProgramiv(program, GL_LINK_STATUS, &result));
 	if (result == GL_FALSE)
 	{
+		std::cout << "Failed to link shader: " << m_FilePath << std::endl;
 		int length;
 		GLCALL(glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length));
-		char* message = (char*)_malloca(length * sizeof(char)); //使用_malloca在栈上分配内存，无需释放
-		GLCALL(glGetProgramInfoLog(program, length, &length, message));
-		std::cout << "Failed to link shader: " << m_FilePath << std::endl;
-		std::cout << message << std::endl;
+		if (length > 0)
+		{
+			char* message = (char*)_malloca(length * sizeof(char)); //使用_malloca在栈上分配内存，无需释放
+			GLCALL(glGetProgramInfoLog(program, length, &length, message));
+			std::cout << message << std::endl;
+		}
 		GLCALL(glDeleteProgram(program));
 		return 0;
 	}

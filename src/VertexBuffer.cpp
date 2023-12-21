@@ -1,7 +1,7 @@
 #include "VertexBuffer.h"
 #include "GLCALL.h"
 
-VertexBuffer::VertexBuffer(const void* data, unsigned int size, unsigned int count, bool dynamicDraw) : m_Count(count), m_RendererID(0)
+VertexBuffer::VertexBuffer(const void* data, unsigned long long size, unsigned int count, bool dynamicDraw) : m_Count(count), m_RendererID(0)
 {
 	GLCALL(glGenBuffers(1, &m_RendererID));
 	Bind();

@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <string>
 #include "PostProcessingMaterial.h"
@@ -24,7 +24,7 @@ public:
 			FollowWindowSize();
 		}
 		Application::GetInstance()->renderer->ApplyViewportSize(viewportSize.x, viewportSize.y, false, false);
-		Application::GetInstance()->renderer->NeedReapplyCurrentViewportSize = true; //ĞèÒªÔÚÏÂÒ»Ö¡¿ªÊ¼Ê±»Ö¸´Ô­À´µÄviewportSize
+		Application::GetInstance()->renderer->NeedReapplyCurrentViewportSize = true; //éœ€è¦åœ¨ä¸‹ä¸€å¸§å¼€å§‹æ—¶æ¢å¤åŸæ¥çš„viewportSize
 	}
 
 	void FollowWindowSize() const {

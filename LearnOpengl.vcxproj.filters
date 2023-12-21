@@ -108,6 +108,12 @@
     <ClCompile Include="src\MultisampleTexture.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="src\DepthFramebuffer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UniformBuffer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\tests\test.h">
@@ -252,6 +258,18 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="res\Materials\PostProcess\GammaCorrection.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\DepthFramebuffer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="res\Materials\SimpleDepthMaterial.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UniformBuffer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Event.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

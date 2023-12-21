@@ -16,8 +16,6 @@ public:
 	bool IsTransparent;
 
 	Shader* GetShader() const;
-	void ApplyMVPUniforms(glm::mat4 modelMatrix) const;
-	void ApplyAllLightUniforms() const;
 	virtual void ApplyUniforms(glm::mat4 modelMatrix) const = 0;
 	virtual std::string GetShaderFilePath() const = 0;
 

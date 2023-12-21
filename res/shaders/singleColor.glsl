@@ -8,8 +8,11 @@ in vec3 tangent;
 in vec3 bitangent;
 
 uniform mat4 u_Model;
-uniform mat4 u_View;
-uniform mat4 u_Projection;
+layout(binding = 0, std140) uniform Matrices
+{
+    mat4 u_View;
+    mat4 u_Projection;
+};
 
 void main()
 {

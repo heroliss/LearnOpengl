@@ -1,5 +1,5 @@
 ﻿##common
-#version 330 core
+#version 450 core
 struct VS {
     vec2 texCoord;
 };
@@ -10,8 +10,11 @@ in vec3 position;
 layout(location = 2) in vec2 texCoord;
 
 uniform mat4 u_Model;
-uniform mat4 u_View;
-uniform mat4 u_Projection;
+layout(binding = 0, std140) uniform Matrices
+{
+    mat4 u_View;
+    mat4 u_Projection;
+};
 
 out VS vs;
 

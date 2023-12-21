@@ -10,7 +10,7 @@ private:
 	unsigned int m_RendererID;
 	unsigned int m_Count;
 public:
-	VertexBuffer(const void* data, unsigned int size, unsigned int count, bool dynamicDraw = false);
+	VertexBuffer(const void* data, unsigned long long size, unsigned int count, bool dynamicDraw = false);
 	~VertexBuffer();
 
 	void Bind() const;

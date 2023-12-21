@@ -40,6 +40,9 @@ int Renderer::Init()
 	int maxVertexAttribs;
 	GLCALL(glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &maxVertexAttribs));
 	std::cout << "Max vertex attribs:" << maxVertexAttribs << std::endl; //显示最大属性数量
+	int maxUniformNum;
+	GLCALL(glGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, &maxUniformNum));
+	std::cout << "Max uniforms:" << maxUniformNum << std::endl; //显示最大Uniform数量
 
 	ResetViewportSize(ViewportWidth, ViewportHeight);
 	//ResetCamera();
@@ -74,6 +77,9 @@ int Renderer::Init()
 	//初始化后处理用的自定义帧缓冲 和 MASS用的多重采样帧缓冲
 	InitFrameBufferRendering();
 
+	//初始哈UniformBuffers
+	InitUniformBuffers();
+
 	return 0;
 }
 
@@ -95,8 +101,7 @@ void Renderer::ResetViewportSize(int viewportWidth, int viewportHeight)
 
 void Renderer::ApplyViewportSize(int viewportWidth, int viewportHeight, bool createNewFrameBuffer, bool resetCameraAspect)
 {
-	// 确保视口与新窗口尺寸匹配；注意，对于Retina显示器，width和height将比指定的大得多。
-	GLCALL(glViewport(0, 0, viewportWidth, viewportHeight)); // 设置OpenGL渲染
+	GLCALL(glViewport(/*(float)(WindowWidth - viewportWidth) / 2, (float)(WindowHeight - viewportHeight) / 2*/0, 0, viewportWidth, viewportHeight)); // 设置OpenGL渲染
 	if (viewportWidth != 0 && viewportHeight != 0)  //最小化窗口时宽高会变成0！
 	{
 		if (resetCameraAspect)
@@ -122,7 +127,7 @@ void Renderer::Clear() const
 	stepCount++;
 	if (stepCount > stepCountLimit) return; //限制渲染步数，用于图像调试
 	clearCount++;
-
+	GLCALL(glStencilMask(0xFF)); //这样设置才能保证模板缓冲被清空
 	GLCALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
 }
 

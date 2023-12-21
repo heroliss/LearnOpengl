@@ -1,4 +1,4 @@
-#include "Camera.h"
+ï»¿#include "Camera.h"
 #include "imgui.h"
 #include "Application.h"
 
@@ -9,7 +9,7 @@ void Camera::OnInspectorGUI()
 	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))
 	{
 		bool dirty = false;
-		//¹²ÓĞ²ÎÊı
+		//å…±æœ‰å‚æ•°
 		SetNextItemWidth(50);
 		if (DragFloat("Aspect", &aspect, 0.01f))
 		{
@@ -31,7 +31,7 @@ void Camera::OnInspectorGUI()
 		//dirty |= DragFloat("Ortho ratio", &orthoRatio, 0.001, 0, 1);
 
 		SameLine();
-		//Õı½»Í¶Ó°²ÎÊı
+		//æ­£äº¤æŠ•å½±å‚æ•°
 		if (orthoGraphic)
 		{
 			if (orthoRatio < 1)
@@ -61,7 +61,7 @@ void Camera::OnInspectorGUI()
 				}
 			}
 		}
-		//Í¸ÊÓÍ¶Ó°²ÎÊı
+		//é€è§†æŠ•å½±å‚æ•°
 		else
 		{
 			if (orthoRatio > 0)
@@ -73,7 +73,7 @@ void Camera::OnInspectorGUI()
 			SetNextItemWidth(60);
 			dirty |= DragFloat("Field of View (vertical)", &fovy, 0.1f);
 		}
-		//ĞŞ¸ÄÍ¶Ó°¾ØÕó
+		//ä¿®æ”¹æŠ•å½±çŸ©é˜µ
 		if (dirty) {
 			UpdateProjectionMatrix();
 		}

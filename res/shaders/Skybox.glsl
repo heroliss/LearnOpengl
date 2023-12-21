@@ -1,5 +1,5 @@
 ##shader vertex
-#version 330 core
+#version 450 core
 
 in vec3 position;
 
@@ -28,7 +28,7 @@ void main()
 
 
 ##shader fragment
-#version 330 core
+#version 450 core
 
 uniform samplerCube cubemap;
 

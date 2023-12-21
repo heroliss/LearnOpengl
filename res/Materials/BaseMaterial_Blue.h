@@ -31,9 +31,8 @@ public:
 	}
 	void ApplyUniforms(glm::mat4 modelMatrix) const override
 	{
-		ApplyMVPUniforms(modelMatrix);
-
 		auto shader = GetShader();
+		shader->SetUniformMat4f("u_Model", modelMatrix);
 		shader->SetUniform4f("u_Color", 0.9f, 0.8f, 1, 1);
 		shader->SetUniform1f("u_TrapezoidFactor", 0.3f);
 

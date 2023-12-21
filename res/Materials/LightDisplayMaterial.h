@@ -17,10 +17,9 @@ public:
 
 	void ApplyUniforms(glm::mat4 modelMatrix) const override
 	{
-		ApplyMVPUniforms(modelMatrix);
-
 		auto shader = GetShader();
-		ApplyAllLightUniforms();
+		shader->SetUniformMat4f("u_Model", modelMatrix);
+
 		shader->SetUniform1i("u_lightIndex", lightIndex);
 		shader->SetUniform1f("u_size", gizmoSize);
 	}

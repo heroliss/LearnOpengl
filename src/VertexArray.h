@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <memory>
 #include "VertexBuffer.h"
@@ -9,7 +9,7 @@ class VertexArray
 private:
 	unsigned int m_RendererID;
 	unsigned int m_vertexCount;
-	unsigned int m_attribeIndex; //µ±Ç°µÄÊôĞÔË÷Òı£¬Îª0Ê±±íÊ¾»¹Ã»ÓĞÊôĞÔÌí¼Ó£¬´ËÊ±µÚÒ»´ÎÌí¼ÓµÄÊôĞÔ×éÊıÊÓÎª¶¥µãÊıÁ¿
+	unsigned int m_attribeIndex; //å½“å‰çš„å±æ€§ç´¢å¼•ï¼Œä¸º0æ—¶è¡¨ç¤ºè¿˜æ²¡æœ‰å±æ€§æ·»åŠ ï¼Œæ­¤æ—¶ç¬¬ä¸€æ¬¡æ·»åŠ çš„å±æ€§ç»„æ•°è§†ä¸ºé¡¶ç‚¹æ•°é‡
 public:
 	VertexArray();
 	~VertexArray();

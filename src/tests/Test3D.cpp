@@ -5,6 +5,7 @@
 #include "glm/glm.hpp"
 #include "glm/gtx/euler_angles.hpp"
 #include <algorithm>
+#include <omp.h>
 
 namespace test {
 	Test3D::Test3D()
@@ -88,6 +89,7 @@ namespace test {
 		lightDisplayMaterial = std::make_unique<LightDisplayMaterial>();		//显示光源信息的材质
 		singleColorMaterial = std::make_unique<SingleColorMaterial>();
 		texcoordDisplayMaterial = std::make_unique<TexcoordDisplayMaterial>();
+		simpleDepthMaterial = std::make_unique<SimpleDepthMaterial>();
 
 		//加载天空盒立方体贴图
 		skybox.LoadDefaultCubemap();
@@ -194,8 +196,30 @@ namespace test {
 
 		//------------开始绘制列表--------------
 		app->renderer->SetDepthTestActive(true); //开启深度测试
-		app->renderer->SetPolygonFillMode(); //填充模式
+		app->renderer->SetPolygonFillMode(); //填充模式	
+		GLCALL(glDisable(GL_STENCIL_TEST));//关闭模板测试
 
+		//渲染阴影贴图
+		/*for (int i = 0; i < lights.size(); i++)
+		{
+			auto& light = lights[i];
+			if (light->type == LightType::PARALLEL_LIGHT && light->brightness > 0 && light->color != glm::vec3(0))
+			{
+				GLfloat near_plane = 1.0f, far_plane = 7.5f;
+				glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+				glm::mat4 lightView = glm::lookAt(light->pos, light->pos + light->direction, glm::vec3(0, 1, 0));
+				glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+				simpleDepthMaterial->lightSpaceMatrix = lightSpaceMatrix;
+				for (int i = 0; i < app->renderer->combineDrawList.size(); i++)
+				{
+					auto& info = app->renderer->combineDrawList[i];
+					app->renderer->Draw(*info.va, *singleColorMaterial, glm::scale(info.modelMatrix, glm::vec3(1.02f)), info.ib, info.instanceCount, info.mode, info.count);
+				}
+			}
+		}*/
+
+
+		//若要显示边框，则将所有物体渲染过的像素写入模板（天空盒除外）
 		if (showOutline)
 		{
 			//启用模板测试
@@ -204,10 +228,6 @@ namespace test {
 			GLCALL(glStencilFunc(GL_ALWAYS, 1, 0xFF));
 			GLCALL(glStencilMask(0xFF));
 			GLCALL(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
-		}
-		else {
-			//关闭模板测试
-			GLCALL(glDisable(GL_STENCIL_TEST));
 		}
 
 		//非透视模式显示线框或点时，先写入一遍深度，来丢弃被挡住的片元
@@ -274,10 +294,11 @@ namespace test {
 
 		//绘制边框
 		if (showOutline) {
+			GLCALL(glStencilMask(0x00)); //不写入模板（经测试没有这句也不影响）
+			GLCALL(glStencilFunc(GL_NOTEQUAL, 1, 0xFF)); //不等于1才通过模板测试
 			for (int i = 0; i < app->renderer->combineDrawList.size(); i++)
 			{
 				auto& info = app->renderer->combineDrawList[i];
-				GLCALL(glStencilFunc(GL_NOTEQUAL, 1, 0xFF));
 				app->renderer->Draw(*info.va, *singleColorMaterial, glm::scale(info.modelMatrix, glm::vec3(1.02f)), info.ib, info.instanceCount, info.mode, info.count);
 			}
 		}
@@ -297,9 +318,9 @@ namespace test {
 		//-----------------------------------------
 
 		//光源（透明）
-		for (int i = 0; i < app->renderer->lights.size(); i++)
+		for (int i = 0; i < lights.size(); i++)
 		{
-			auto& light = app->renderer->lights[i];
+			auto& light = lights[i];
 			//自动旋转光源
 			if (light->autoRotate && light->autoRotateSpeed != 0)
 			{
@@ -534,27 +555,41 @@ namespace test {
 		//TODO: 视角旋转到90度时会卡住
 
 		//---------------------光照--------------------------
+
 		if (ImGui::CollapsingHeader("Lights", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))
 		{
-			ImGui::NewLine();
-			for (int i = 0; i < lights.size(); i++)
-			{
-				//auto typeName = Light::LightTypeToString(light.type) + id;
-				bool isSelected = selectedItemIndex == i;
-				ImGui::SameLine();
-				if (ImGui::RadioButton(std::to_string(i).c_str(), isSelected))
-				{
-					selectedItemIndex = i;
-				}
-			}
+			//ADD Light
+			auto startPos = ImGui::GetCursorPos();
 			if (lights.size() < MAX_LIGHT_COUNT)
 			{
-				ImGui::SameLine(ImGui::GetWindowWidth() - 90.0f);
+				ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 90.0f);
 				if (ImGui::Button("Add light"))
 				{
 					Application::GetInstance()->renderer->AddLight();
 				}
+
 			}
+
+			if (lights.size() > 0)
+			{
+				ImGui::SetCursorPos(startPos);
+
+				//所有光源选择项
+				for (int i = 0; i < lights.size(); i++)
+				{
+					//auto typeName = Light::LightTypeToString(light.type) + id;
+					bool isSelected = selectedItemIndex == i;
+					if (i % 10 != 0) //每10个换行
+					{
+						ImGui::SameLine();
+					}
+					if (ImGui::RadioButton(std::to_string(i).c_str(), isSelected))
+					{
+						selectedItemIndex = i;
+					}
+				}
+			}
+
 			if (selectedItemIndex >= 0)
 			{
 				Light& light = *lights[selectedItemIndex];

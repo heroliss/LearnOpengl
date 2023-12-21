@@ -1,5 +1,5 @@
 ﻿##common
-#version 330 core
+#version 450 core
 struct VS {
     vec3 normal;      //观察空间法线
     vec3 worldNormal; //世界空间法线
@@ -7,6 +7,13 @@ struct VS {
     mat3 TBA;
     mat3 viewNormalMatrix;
 };
+
+layout(binding = 0, std140) uniform Matrices
+{
+    mat4 u_View;
+    mat4 u_Projection;
+};
+
 
 ##shader vertex
 
@@ -17,8 +24,7 @@ in vec3 tangent;
 in vec3 bitangent;
 
 uniform mat4 u_Model;
-uniform mat4 u_View;
-//uniform mat4 u_Projection;
+
 
 out VS vs;
 
@@ -53,7 +59,6 @@ in VS vs[];
 
 out vec4 gs_Color;
 
-uniform mat4 u_Projection;
 uniform float size;
 uniform bool showVertexNormal;
 uniform bool showFragmentNormal;
