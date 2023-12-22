@@ -64,9 +64,18 @@ public:
 		shader->SetUniform1i("u_heightTexture", 3);
 		if (HeightTexture != nullptr) HeightTexture->SetUnit(3); else HeightTexture->UnsetUnit(3);
 
-		//深度图
+		//深度图设置
 		shader->SetUniform1i("u_showDepth", showDepth); //是否显示深度图
 		shader->SetUniform2f("u_showDepthRange", showDepthRange.x, showDepthRange.y); //深度图的范围
+
+		//阴影深度图
+		int lightSize = Application::GetInstance()->renderer->lights.size();
+		std::vector<int> samplers;
+		for (int i = 0; i < lightSize; i++)
+		{
+			samplers.push_back(10 + i);
+		}
+		shader->SetUniform1iv("u_shadowMaps", lightSize, samplers.data());
 
 		//环境立方体贴图，用于反射和折射
 		shader->SetUniform1i("u_cubemap", 4);

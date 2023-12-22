@@ -34,7 +34,7 @@ public:
 
 	float Time = 0.0;
 	float DeltaTime = 0.0;
-	float TargetFrameRate = 10000; // 目标帧率
+	float TargetFrameRate = 9999; // 目标帧率
 	int frameCount = 0;
 
 	bool AutoResizeViewportByWindow = true;

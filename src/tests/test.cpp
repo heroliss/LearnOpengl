@@ -51,9 +51,11 @@ namespace test
 				lastTime = app->Time;
 				lastFrameCount = app->frameCount;
 			}
-			ImGui::Text("FPS %.1f  TargetFPS:%.1f  Drawcall:%d  Clear:%d  PostProcess:%d", fps, app->TargetFrameRate,
-				renderer->drawCallCount, renderer->clearCount, renderer->postProcessCount);
-
+			ImGui::Text("FPS %.1f  Drawcall:%d  Clear:%d  PostProcess:%d", fps, renderer->drawCallCount, renderer->clearCount, renderer->postProcessCount);
+			//目标帧率
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(40);
+			ImGui::DragFloat("TargetFPS", &app->TargetFrameRate, 1, 1, 9999, "%.0f");
 			//全屏模式
 			ImGui::SameLine();
 			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 100.0f);

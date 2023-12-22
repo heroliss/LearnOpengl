@@ -152,6 +152,10 @@ void Texture::setParameter(unsigned int pname, unsigned int param) {
 	GLCALL(glTexParameteri(GL_TEXTURE_2D, pname, param));
 }
 
+void Texture::setParameter(unsigned int pname, float* param) {
+	GLCALL(glTexParameterfv(GL_TEXTURE_2D, pname, param));
+}
+
 void Texture::SetUnit(unsigned int unit) const {
 	GLCALL(glBindTextureUnit(unit, m_id));
 }

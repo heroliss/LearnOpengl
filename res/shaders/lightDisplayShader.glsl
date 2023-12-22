@@ -16,7 +16,7 @@ void main()
 
 ##shader geometry
 // 光照类型定义(从3D_basic.shader复制来的)
-#define MAX_LIGHT_COUNT 12
+#define MAX_LIGHT_COUNT 4
 #define NONE_LIGHT 0
 #define PARALLEL_LIGHT 1
 #define POINT_LIGHT 2
@@ -26,11 +26,13 @@ struct Light
     int type;
     bool useBlinnPhong;
     float brightness;
+    int shadowPCFSize;
     vec3 pos; //光源位置 (平行光无用)
     vec3 direction; //照射方向（点光源无用）
     vec3 color;
     vec3 attenuation; //衰减系数 （分别为常数项、一次项、二次项系数 , 一般常数项固定为1，主要调二次项系数）
     vec2 cutoffAngle; //聚光范围 (内圈和外圈，度数表示，仅聚光类型有用)
+    mat4 lightSpaceMatrix;
 };
 
 layout(points) in;

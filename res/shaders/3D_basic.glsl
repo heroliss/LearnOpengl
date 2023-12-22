@@ -1,7 +1,7 @@
 ﻿##common
 #version 450 core
 // 光照类型定义
-#define MAX_LIGHT_COUNT 12
+#define MAX_LIGHT_COUNT 4
 #define NONE_LIGHT 0
 #define PARALLEL_LIGHT 1
 #define POINT_LIGHT 2
@@ -11,13 +11,13 @@ struct Light
     int type;
     bool useBlinnPhong;
     float brightness;
+    int shadowPCFSize;
     vec3 pos; //光源位置 (平行光无用)
     vec3 direction; //照射方向（点光源无用）
     vec3 color;
     vec3 attenuation; //衰减系数 （分别为常数项、一次项、二次项系数 , 一般常数项固定为1，主要调二次项系数）
     vec2 cutoffAngle; //聚光范围 (内圈和外圈，度数表示，仅聚光类型有用)
-//    sampler2D shadowMap;
-//    samplerCube shadowCubeMap;
+    mat4 lightSpaceMatrix;
 };
 
 layout(binding = 1, std140) uniform Lights
@@ -51,6 +51,7 @@ out vec3 v_TangentFragPos;
 out vec3 v_TangentLightPos[MAX_LIGHT_COUNT];
 out vec3 v_TangentLightDir[MAX_LIGHT_COUNT];
 out mat3 TBN;
+out vec4 v_FragPosLightSpaces[MAX_LIGHT_COUNT]; //光照空间的片元位置
 
 void main()
 {
@@ -80,7 +81,9 @@ void main()
     {
         v_TangentLightPos[i] = inversedTBN * u_lights[i].pos;
         v_TangentLightDir[i] = inversedTBN * normalize(u_lights[i].direction);
+        v_FragPosLightSpaces[i] = u_lights[i].lightSpaceMatrix * worldPos;
     }
+
 }
 
 
@@ -106,16 +109,50 @@ uniform bool u_enableRefract;//开启折射（目前仅支持折射天空盒，�
 uniform vec3 u_refractColor; //折射颜色
 uniform float u_refractiveIndex; //折射率
 
-in vec2 v_TexCoord;
+uniform sampler2D u_shadowMaps[MAX_LIGHT_COUNT]; //阴影深度纹理，与u_lights对应
 
+out vec4 outColor;
+
+in vec2 v_TexCoord;
 in vec3 v_TangentViewPos;
 in vec3 v_TangentFragPos;
 in vec3 v_TangentLightPos[MAX_LIGHT_COUNT];
 in vec3 v_TangentLightDir[MAX_LIGHT_COUNT];
-
 in mat3 TBN;
+in vec4 v_FragPosLightSpaces[MAX_LIGHT_COUNT]; //光照空间的片元位置
 
-out vec4 outColor;
+
+float ShadowCalculation(int index, vec3 lightDir, vec3 normal)
+{
+    vec4 fragPosLightSpace = v_FragPosLightSpaces[index];
+    //执行透视除法，得到NDC坐标
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    //将NDC坐标变换为0到1的范围
+    projCoords = projCoords * 0.5 + 0.5;
+    //当前像素超出光源视锥的远平面
+    if(projCoords.z > 1.0)
+        return 0.0;
+    //从阴影深度贴图中采样得到0到1的结果
+    //float closestDepth = texture(u_shadowMaps[index], projCoords.xy).r;
+    //取得当前片段在光源视角下的深度
+    float currentDepth = projCoords.z;
+    //检查当前片段是否在阴影中
+    float bias = 0;// max(0.005 * (1.0 - dot(normal, lightDir)), 0.0001);
+    //float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;    
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(u_shadowMaps[index], 0);
+    int shadowPCFSize = u_lights[index].shadowPCFSize;
+    for(int x = -shadowPCFSize; x <= shadowPCFSize; ++x)
+    {
+        for(int y = -shadowPCFSize; y <= shadowPCFSize; ++y)
+        {
+            float pcfDepth = texture(u_shadowMaps[index], projCoords.xy + vec2(x, y) * texelSize).r; 
+            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
+        }    
+    }
+    shadow /= pow(1 + shadowPCFSize * 2, 2);
+    return shadow;
+};
 
 
 void main()
@@ -187,7 +224,8 @@ void main()
         vec3 lightDir; //光照方向的反方向(指向光源的方向)
         float lightDistance; //记录光源距离
         float intensity = 1;
-        
+        float shadow = 0;
+
         if (light.type == NONE_LIGHT || light.color == vec3(0) || light.brightness <= 0) //跳过无亮度的光照
         {
             continue;
@@ -196,6 +234,7 @@ void main()
         {
             lightDir = -v_TangentLightDir[i];
             lightDistance = 0; //平行光的光源距离恒为0
+            shadow = ShadowCalculation(i, lightDir, norm); //计算平行光阴影值
         }
         else if (light.type == POINT_LIGHT || light.type == SPOT_LIGHT) //点光或聚光
         {
@@ -241,7 +280,7 @@ void main()
             float attenuation = 1.0 / (light.attenuation[0] + light.attenuation[1] * lightDistance + light.attenuation[2] * (lightDistance * lightDistance));
         
             //合并所有光照
-            allLightsColor += (diffuse + specular) * attenuation * intensity;
+            allLightsColor += (diffuse + specular) * attenuation * intensity * (1.0 - shadow);
             allLightsColor *= baseColor.a; //透视会减少光照的反射
         }
     }

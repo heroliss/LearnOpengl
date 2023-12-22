@@ -3,8 +3,9 @@
 #include "Shader.h"
 #include "glm/gtx/euler_angles.hpp"
 #include "Event.h"
+#include "Texture.h"
 
-#define MAX_LIGHT_COUNT 12
+#define MAX_LIGHT_COUNT 4
 
 enum LightType : int32_t {
 	NONE_LIGHT = 0,
@@ -19,11 +20,15 @@ public:
 	alignas(4)  LightType type          = LightType::PARALLEL_LIGHT;
 	alignas(4)  bool       useBlinnPhong = 1;
 	alignas(4)  float     brightness = 1;                                       //亮度，与颜色相乘
+	alignas(4)  int       shadowPCFSize = 4;                                    //PCF(Percentage Closer Filtering) 采样尺寸的边长
 	alignas(16) glm::vec3 pos           = glm::vec3(-100, 100, 100);            //光源位置 (平行光无用)
 	alignas(16) glm::vec3 direction     = glm::normalize(glm::vec3(1, -1, -1)); //照射方向（点光源无用）
 	alignas(16) glm::vec3 color         = glm::vec3(1);
 	alignas(16) glm::vec3 attenuation   = glm::vec3(1.0, 0.0001, 0.00002);		//衰减系数 （分别为常数项、一次项、二次项系数。一般常数项固定为1，主要调二次项系数）
 	alignas(16) glm::vec2 cutoffAngle   = glm::vec2(0, 25);					    //聚光范围 (内圈和外圈，度数表示，仅聚光类型有用)
+	alignas(16) glm::mat4 lightSpaceMatrix;                                     //光照空间矩阵（只有渲染阴影贴图时才会被填充）
+
+	std::shared_ptr<Texture> shadowTexture;
 
 	void* GetData() {
 		return &type;
@@ -35,7 +40,7 @@ public:
 	}
 
 	static unsigned long long GetSize() {
-		return offsetof(Light, cutoffAngle) + 16;
+		return offsetof(Light, shadowTexture);
 	}
 
 
@@ -48,6 +53,10 @@ public:
 	bool autoLookAtCenter = false; //自动对准中心点
 	bool showGizmo = true;
 	float gizmoSize = 5;
+
+	//阴影设置
+	glm::vec4 shadowOrthoRect = glm::vec4(-500.0f, 500.0f, -500.0f, 500.0f);
+	glm::vec2 shadowNearAndFar = glm::vec2(-10000.0f, 10000.0f);
 
 	void UpdateAutoRotateAxisByEulerAngles() {
 		glm::mat4 rotationMatrix = glm::eulerAngleXYZ(autoRotateAxisEulerAngles.x, autoRotateAxisEulerAngles.y, autoRotateAxisEulerAngles.z);

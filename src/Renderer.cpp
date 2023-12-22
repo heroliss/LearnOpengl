@@ -36,6 +36,7 @@ int Renderer::Init()
 	//GLCALL(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS));
 	//GLCALL(glDebugMessageCallback(MessageCallback, 0));
 
+	//显示信息
 	std::cout << glGetString(GL_VERSION) << std::endl; //显示gl版本
 	int maxVertexAttribs;
 	GLCALL(glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &maxVertexAttribs));
@@ -43,6 +44,9 @@ int Renderer::Init()
 	int maxUniformNum;
 	GLCALL(glGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, &maxUniformNum));
 	std::cout << "Max uniforms:" << maxUniformNum << std::endl; //显示最大Uniform数量
+	int max_texture_units;
+	GLCALL(glGetIntegerv(GL_MAX_TEXTURE_UNITS, &max_texture_units));
+	std::cout << "Max texture units:" << max_texture_units << std::endl;
 
 	ResetViewportSize(ViewportWidth, ViewportHeight);
 	//ResetCamera();
@@ -156,6 +160,24 @@ void Renderer::SetClearColor(float r, float g, float b, float a)
 	m_ClearColor[2] = b;
 	m_ClearColor[3] = a;
 	GLCALL(glClearColor(m_ClearColor[0], m_ClearColor[1], m_ClearColor[2], m_ClearColor[3]));
+}
+
+void Renderer::AddToDrawList(const VertexArray& va, std::shared_ptr<Material> material, glm::mat4 modelMatrix, const IndexBuffer* ib, const unsigned int instanceCount, unsigned int mode, const unsigned int count)
+{
+	DrawInfo info = DrawInfo(&va, material, modelMatrix, ib, mode, count, instanceCount);
+	if (material->IsTransparent)
+	{
+		glm::vec3 cameraToModel = glm::vec3(modelMatrix * glm::vec4(0, 0, 0, 1)) - camera.position;
+		float distance = glm::length(cameraToModel);
+		//transparentDrawMap[distance] = info;
+
+		info.depth = distance;
+		transparentDrawList.push_back(info);
+	}
+	else {
+		opaqueDrawList.push_back(info);
+	}
+	combineDrawList.push_back(info);
 }
 
 //渲染顶点数据，ib可以为空

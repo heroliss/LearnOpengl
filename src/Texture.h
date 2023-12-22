@@ -9,6 +9,7 @@ public:
 	Texture();
 	~Texture();
 	void setParameter(unsigned int pname, unsigned int param);
+	void setParameter(unsigned int pname, float* param);
 	void SetUnit(unsigned int unit) const;
 	void UnsetUnit(unsigned int unit) const;
 	void bind() const;

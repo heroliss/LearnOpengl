@@ -24,7 +24,7 @@ public:
 			FollowWindowSize();
 		}
 		Application::GetInstance()->renderer->ApplyViewportSize(viewportSize.x, viewportSize.y, false, false);
-		Application::GetInstance()->renderer->NeedReapplyCurrentViewportSize = true; //需要在下一帧开始时恢复原来的viewportSize
+		//Application::GetInstance()->renderer->NeedReapplyCurrentViewportSize = true; //需要在下一帧开始时恢复原来的viewportSize
 	}
 
 	void FollowWindowSize() const {

@@ -115,30 +115,37 @@ start:
 			{
 				std::this_thread::sleep_for(std::chrono::duration<double>(remainingTime));
 			}
+
 			//开始帧，更新时间
 			frameStartTime = std::chrono::high_resolution_clock::now();
 			float currentTime = std::chrono::duration<float>(frameStartTime - appStartTime).count();
 			DeltaTime = currentTime - Time;
 			Time = currentTime;
 
-			//应用光照数据
-			renderer->ApplyLights();
-
 			//处理输入
 			glfwPollEvents();
 			input->processInput(window);
 
-			//恢复viewport
-			if (renderer->NeedReapplyCurrentViewportSize) {
-				renderer->NeedReapplyCurrentViewportSize = false;
-				renderer->ApplyViewportSize(renderer->ViewportWidth, renderer->ViewportHeight, false, false);
-			}
+			//执行逻辑（填充渲染列表）
+			testMenu.OnUpdate(DeltaTime);
 
 			//判断是否渲染到自定义帧缓冲（必须先于重置统计数据执行，因为需要用到上一帧的stepCount）
 			bool hasPostProcessing = renderer->HasPostProcessingToDraw();
 
 			//重置统计数据 （必须先于下面的clear执行，因为需要stepCount清零）
 			renderer->ResetStatisticData();
+
+			//为每一个灯光渲染阴影贴图
+			renderer->ApplyViewportSize(renderer->depthFrameBuffer->width, renderer->depthFrameBuffer->height, false, false);
+			GLCALL(glCullFace(GL_FRONT)); //使用正面剔除的方式修复阴影平移
+			renderer->DrawShadowMap(); //绑定到深度帧缓冲或默认帧缓冲并clear，并渲染灯光空间的深度图
+			GLCALL(glCullFace(GL_BACK)); //恢复背面剔除
+
+			//应用光照数据（必须在渲染阴影贴图之后，因为DrawShadowMap中修改了光照的空间矩阵）
+			renderer->ApplyLights();
+
+			//恢复viewport（这里除了可能被上面的渲染阴影贴图修改viewport，还可能被上一帧修改，比如后处理中的resizeViewport）
+			renderer->ApplyViewportSize(renderer->ViewportWidth, renderer->ViewportHeight, false, false);
 
 			//若需要后处理，则切换到自定义帧缓冲
 			if (hasPostProcessing)
@@ -156,9 +163,6 @@ start:
 			{
 				renderer->BindMultiSampleFrameBuffer(); //绑定到多重采样帧缓冲并clear
 			}
-
-			//执行逻辑
-			testMenu.OnUpdate(DeltaTime);
 
 			//渲染图像
 			testMenu.OnRender();

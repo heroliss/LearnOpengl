@@ -31,7 +31,6 @@ namespace test {
 		~Test3D();
 
 		void OnUpdate(float deltaTime) override;
-		void AddToDrawList(const VertexArray& va, std::shared_ptr<Material> material, glm::mat4 modelMatrix, const IndexBuffer* ib = nullptr, const unsigned int instanceCount = 1, unsigned int mode = GL_TRIANGLES, const unsigned int count = 0);
 		void OnRender() override;
 		void OnImGuiRender() override;
 	private:
@@ -45,7 +44,6 @@ namespace test {
 		std::unique_ptr<SingleColorMaterial> singleColorMaterial;
 		std::unique_ptr<SingleColorMaterial> zeroColorMaterial;
 		std::unique_ptr<TexcoordDisplayMaterial> texcoordDisplayMaterial;
-		std::unique_ptr<SimpleDepthMaterial> simpleDepthMaterial;
 
 		bool showDepth;
 		glm::vec2 showDepthRange = glm::vec2(1, 500); //预设的深度图范围
@@ -66,10 +64,11 @@ namespace test {
 		int selectedItemIndex = -1;
 
 		int currentModelIndex = 0;
-		const char* modelNames[7] = { "cube" , "sphere", "grid sphere", "character", "car", "planet", "rock" };
-		const char* modelPaths[7] = { "", "res/Models/sphere.fbx", "res/Models/sphere_grid.3ds", "res/Models/nanosuit/nanosuit.obj", "res/Models/rs6/rs6.obj", "res/Models/planet/planet.obj", "res/Models/rock/rock.obj" };
-		const float modelScales[7] = { 100, 100, 1, 30, 100, 30, 100 };
-		const glm::vec3 modelOffsets[7] = { glm::vec3(0), glm::vec3(0), glm::vec3(0), glm::vec3(0, -250, 0), glm::vec3(0), glm::vec3(0), glm::vec3(0) };
+		const char* modelNames[8] = { "cube" , "sphere", "grid sphere", "character", "car", "planet", "rock", "plane"};
+		const char* modelPaths[8] = { "", "res/Models/sphere.fbx", "res/Models/sphere_grid.3ds", "res/Models/nanosuit/nanosuit.obj", 
+			"res/Models/rs6/rs6.obj", "res/Models/planet/planet.obj", "res/Models/rock/rock.obj", "res/Models/plane.fbx" };
+		const float modelScales[8] = { 100, 100, 1, 30, 100, 30, 100, 0.2 };
+		const glm::vec3 modelOffsets[8] = { glm::vec3(0), glm::vec3(0), glm::vec3(0), glm::vec3(0, -250, 0), glm::vec3(0), glm::vec3(0), glm::vec3(0), glm::vec3(0)};
 		glm::mat4 GetCurrentModelMatrix() {
 			//设置大小和偏移
 			glm::mat4 modelMatrix = glm::translate(Application::GetInstance()->input->ModelMatrix, modelOffsets[currentModelIndex]);
@@ -85,9 +84,8 @@ namespace test {
 			std::make_shared<GammaCorrection>(),
 		};
 
-		//比较笨的办法来让面板上的材质设置对所有物体生效
+		//比较笨的办法来让面板上的材质设置对所有物体生效(调试用：跟随主材质设置)
 		void SetMaterialSameAsMainMaterial(std::shared_ptr<BaseMaterial3D> material) {
-			//调试用：跟随主材质设置
 			material->IsTransparent = mainMaterial->IsTransparent;
 			material->ObjectColor = mainMaterial->ObjectColor;
 			material->Ambient = mainMaterial->Ambient;

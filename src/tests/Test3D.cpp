@@ -89,7 +89,6 @@ namespace test {
 		lightDisplayMaterial = std::make_unique<LightDisplayMaterial>();		//显示光源信息的材质
 		singleColorMaterial = std::make_unique<SingleColorMaterial>();
 		texcoordDisplayMaterial = std::make_unique<TexcoordDisplayMaterial>();
-		simpleDepthMaterial = std::make_unique<SimpleDepthMaterial>();
 
 		//加载天空盒立方体贴图
 		skybox.LoadDefaultCubemap();
@@ -104,31 +103,6 @@ namespace test {
 	}
 
 	void Test3D::OnUpdate(float deltaTime)
-	{
-
-	}
-
-	void Test3D::AddToDrawList(const VertexArray& va, std::shared_ptr<Material> material, glm::mat4 modelMatrix, const IndexBuffer* ib, const unsigned int instanceCount, unsigned int mode, const unsigned int count)
-	{
-		DrawInfo info = DrawInfo(&va, material, modelMatrix, ib, mode, count, instanceCount);
-		if (material->IsTransparent)
-		{
-			glm::vec3 cameraToModel = glm::vec3(modelMatrix * glm::vec4(0, 0, 0, 1)) - Application::GetInstance()->renderer->camera.position;
-			float distance = glm::length(cameraToModel);
-			//Application::GetInstance()->renderer->transparentDrawMap[distance] = info;
-
-			info.depth = distance;
-			Application::GetInstance()->renderer->transparentDrawList.push_back(info);
-		}
-		else {
-			Application::GetInstance()->renderer->opaqueDrawList.push_back(info);
-		}
-		Application::GetInstance()->renderer->combineDrawList.push_back(info);
-	}
-
-
-
-	void Test3D::OnRender()
 	{
 		auto app = Application::GetInstance();
 
@@ -150,7 +124,7 @@ namespace test {
 			//设置模型矩阵
 			glm::mat4 modelMatrix = GetCurrentModelMatrix();//中心立方体的旋转由input控制
 			//添加中心立方体绘制
-			AddToDrawList(*va, mainMaterial, modelMatrix, ib.get());
+			app->renderer->AddToDrawList(*va, mainMaterial, modelMatrix, ib.get());
 			//渲染多个立方体
 			if (mutiCubes) {
 				srand(randomSeed); //重启随机数列表，保证下面的rand每次随机到一样的结果
@@ -162,7 +136,7 @@ namespace test {
 					//所有立方体一起旋转
 					auto otherModelMatrix = glm::translate(modelMatrix, glm::vec3((std::rand() % 6 - 3), (std::rand() % 6 - 3), (std::rand() % 6 - 3)));
 					//添加其他立方体绘制
-					AddToDrawList(*va, mainMaterial, otherModelMatrix, ib.get());
+					app->renderer->AddToDrawList(*va, mainMaterial, otherModelMatrix, ib.get());
 				}
 			}
 		}
@@ -176,7 +150,7 @@ namespace test {
 			{
 				auto mesh = &model->meshes[j];
 				auto material = CreateModelMaterial(model.get(), mesh);
-				AddToDrawList(*mesh->va, material, modelMatrix, mesh->ib.get());
+				app->renderer->AddToDrawList(*mesh->va, material, modelMatrix, mesh->ib.get());
 			}
 
 			//对于第六个行星模型，额外绘制小行星带
@@ -187,36 +161,23 @@ namespace test {
 				{
 					auto mesh = &rockModel->meshes[j];
 					auto material = CreateModelMaterial(rockModel.get(), mesh);
-					AddToDrawList(*mesh->va, material, glm::mat4(0), mesh->ib.get(), asteroidBeltAmount);
+					app->renderer->AddToDrawList(*mesh->va, material, glm::mat4(0), mesh->ib.get(), asteroidBeltAmount);
 				}
-				//小行星公转
+				//小行星公转和自转
 				AsteroidRevolves();
 			}
 		}
+	}
+
+	void Test3D::OnRender()
+	{
+		auto app = Application::GetInstance();
 
 		//------------开始绘制列表--------------
 		app->renderer->SetDepthTestActive(true); //开启深度测试
 		app->renderer->SetPolygonFillMode(); //填充模式	
 		GLCALL(glDisable(GL_STENCIL_TEST));//关闭模板测试
 
-		//渲染阴影贴图
-		/*for (int i = 0; i < lights.size(); i++)
-		{
-			auto& light = lights[i];
-			if (light->type == LightType::PARALLEL_LIGHT && light->brightness > 0 && light->color != glm::vec3(0))
-			{
-				GLfloat near_plane = 1.0f, far_plane = 7.5f;
-				glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
-				glm::mat4 lightView = glm::lookAt(light->pos, light->pos + light->direction, glm::vec3(0, 1, 0));
-				glm::mat4 lightSpaceMatrix = lightProjection * lightView;
-				simpleDepthMaterial->lightSpaceMatrix = lightSpaceMatrix;
-				for (int i = 0; i < app->renderer->combineDrawList.size(); i++)
-				{
-					auto& info = app->renderer->combineDrawList[i];
-					app->renderer->Draw(*info.va, *singleColorMaterial, glm::scale(info.modelMatrix, glm::vec3(1.02f)), info.ib, info.instanceCount, info.mode, info.count);
-				}
-			}
-		}*/
 
 
 		//若要显示边框，则将所有物体渲染过的像素写入模板（天空盒除外）
@@ -265,9 +226,14 @@ namespace test {
 		//绘制天空盒
 		if (showSkybox)
 		{
-			GLCALL(glStencilMask(0x00)); //不写入模板
-			skybox.Draw();
-			GLCALL(glStencilMask(0xFF)); //恢复写入模板
+			if (showOutline) {
+				GLCALL(glStencilMask(0x00)); //不写入模板
+				skybox.Draw();
+				GLCALL(glStencilMask(0xFF)); //恢复写入模板
+			}
+			else {
+				skybox.Draw();
+			}
 		}
 
 		//排序透明物体
@@ -418,7 +384,6 @@ namespace test {
 			ImGui::Checkbox("Show Skybox", &showSkybox);
 			ImGui::SameLine();
 			ImGui::Checkbox("Show outline", &showOutline);
-			ImGui::SameLine();
 
 			//MSAA设置
 			int logMassSamples = glm::log2((float)app->renderer->multiSample);
@@ -430,7 +395,7 @@ namespace test {
 			}
 			else
 			{
-				ImGui::SetNextItemWidth(120);
+				ImGui::SetNextItemWidth(200);
 				if (ImGui::SliderInt("MSAA", &logMassSamples, 0, 4, ""))
 				{
 					app->renderer->SetMultiSample(logMassSamples == 0 ? 0 : glm::pow(2, logMassSamples));
@@ -438,6 +403,9 @@ namespace test {
 				ImGui::SameLine();
 				ImGui::Text(("x" + std::to_string(app->renderer->multiSample)).c_str());
 			}
+			//阴影分辨率
+			ImGui::SetNextItemWidth(200);
+			ImGui::DragInt2("Shadow resolution", &app->renderer->depthFrameBuffer->width, 1, 1, 9999);
 		}
 
 		//----------------------------调试---------------------------------------
@@ -659,6 +627,14 @@ namespace test {
 				}
 
 				ImGui::Spacing();
+
+				//阴影设置
+				ImGui::SetNextItemWidth(30);
+				ImGui::DragInt(("Shadow PCF size" + id).c_str(), &light.shadowPCFSize, 1, 0, 9);
+				ImGui::SetNextItemWidth(200);
+				ImGui::DragFloat4(("Shadow ortho rect" + id).c_str(), &light.shadowOrthoRect.x, 1, 0, 0, "%.1f");
+				ImGui::SetNextItemWidth(200);
+				ImGui::DragFloat2(("Shadow near and far" + id).c_str(), &light.shadowNearAndFar.x, 1, 0, 0, "%.1f");
 
 				//gizmo
 				ImGui::Checkbox(("Show gizmo" + id).c_str(), &light.showGizmo);
