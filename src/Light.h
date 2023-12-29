@@ -18,13 +18,16 @@ struct Light
 {
 public:
 	alignas(4)  LightType type          = LightType::PARALLEL_LIGHT;
-	alignas(4)  bool       useBlinnPhong = 1;
+	alignas(4)  int       useBlinnPhong = 1;
 	alignas(4)  float     brightness = 1;                                       //亮度，与颜色相乘
-	alignas(4)  int       shadowPCFSize = 4;                                    //PCF(Percentage Closer Filtering) 采样尺寸的边长
+	alignas(4)  int       castShadow = 1;
+	alignas(4)  int       shadowPCFSize = 1;                                    //PCF(Percentage Closer Filtering) 采样尺寸的边长
+	alignas(4)  float     shadowBias;                                           //光照与法线接近垂直时的最大阴影深度偏移值（跟随shadowBiasSettingValue和shadowNearAndFar变化）
+	alignas(4)  float     shadowBiasChangeRate = 70;                            //光照与法线由平行到垂直变化时引起的阴影深度偏移值变化的速率
 	alignas(16) glm::vec3 pos           = glm::vec3(-100, 100, 100);            //光源位置 (平行光无用)
 	alignas(16) glm::vec3 direction     = glm::normalize(glm::vec3(1, -1, -1)); //照射方向（点光源无用）
 	alignas(16) glm::vec3 color         = glm::vec3(1);
-	alignas(16) glm::vec3 attenuation   = glm::vec3(1.0, 0.0001, 0.00002);		//衰减系数 （分别为常数项、一次项、二次项系数。一般常数项固定为1，主要调二次项系数）
+	alignas(16) glm::vec3 attenuation   = glm::vec3(1.0, 0.0001, 0.00001);		//衰减系数 （分别为常数项、一次项、二次项系数。一般常数项固定为1，主要调二次项系数）
 	alignas(16) glm::vec2 cutoffAngle   = glm::vec2(0, 25);					    //聚光范围 (内圈和外圈，度数表示，仅聚光类型有用)
 	alignas(16) glm::mat4 lightSpaceMatrix;                                     //光照空间矩阵（只有渲染阴影贴图时才会被填充）
 
@@ -43,11 +46,14 @@ public:
 		return offsetof(Light, shadowTexture);
 	}
 
+	Light() {
+		UpdateShadowBiasBySettingValue();
+	}
 
 
 	//其他展示功能
 	bool autoRotate = false;
-	float autoRotateSpeed; //每秒旋转角度
+	float autoRotateSpeed = 0; //每秒旋转角度
 	glm::vec3 autoRotateAxis = glm::vec3(0.0f, 0.0f, -1.0f); //自动旋转轴
 	glm::vec3 autoRotateAxisEulerAngles = glm::vec3(0); //自动旋转轴的欧拉角表示
 	bool autoLookAtCenter = false; //自动对准中心点
@@ -55,8 +61,14 @@ public:
 	float gizmoSize = 5;
 
 	//阴影设置
-	glm::vec4 shadowOrthoRect = glm::vec4(-500.0f, 500.0f, -500.0f, 500.0f);
-	glm::vec2 shadowNearAndFar = glm::vec2(-10000.0f, 10000.0f);
+	glm::vec2 shadowNearAndFar = glm::vec2(1.0f, 10000.0f); //阴影投影体的近远平面
+	glm::vec4 shadowOrthoRect = glm::vec4(-500.0f, 500.0f, -500.0f, 500.0f); //用于平行光的正交矩阵
+	glm::vec2 shadowShowDepthRange = glm::vec2(1.0f, 1000.0f); //仅用于展示深度图
+	bool shadowFrontFaceCulling = false;
+	float shadowBiasSettingValue = 0.03f;
+	void UpdateShadowBiasBySettingValue() {
+		shadowBias = type != LightType::PARALLEL_LIGHT ? shadowBiasSettingValue : 800 * shadowBiasSettingValue / (shadowNearAndFar.y - shadowNearAndFar.x); //TODO：为什么平行光的bias需要根据远近平面变化？
+	}
 
 	void UpdateAutoRotateAxisByEulerAngles() {
 		glm::mat4 rotationMatrix = glm::eulerAngleXYZ(autoRotateAxisEulerAngles.x, autoRotateAxisEulerAngles.y, autoRotateAxisEulerAngles.z);

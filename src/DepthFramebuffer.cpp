@@ -2,7 +2,7 @@
 #include "DepthFramebuffer.h"
 #include "Application.h"
 
-DepthFramebuffer::DepthFramebuffer(unsigned int width, unsigned int height) : width(width), height(height)
+DepthFramebuffer::DepthFramebuffer()
 {
 	GLCALL(glGenFramebuffers(1, &m_RendererID));
 

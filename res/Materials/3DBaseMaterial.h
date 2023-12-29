@@ -27,9 +27,6 @@ public:
 	glm::vec3 SpecularColor = glm::vec3(0.5f, 0.5f, 0.5f); //高光反射颜色和强度
 	float Shininess = 64; //高光反光度（范围）
 
-	bool showDepth = false;
-	glm::vec2 showDepthRange = glm::vec2(1, 500); //预设的深度图范围
-
 	std::shared_ptr<Cubemap> cubemap; //环境立方体贴图（目前用于天空盒反射和折射，进阶可变为反射探针结果）
 
 	bool enableRefract; //是否开启折射（目前仅支持折射天空盒，此时透明度恒为1）
@@ -63,10 +60,6 @@ public:
 		if (SpecularTexture != nullptr) SpecularTexture->SetUnit(2); else SpecularTexture->UnsetUnit(2);
 		shader->SetUniform1i("u_heightTexture", 3);
 		if (HeightTexture != nullptr) HeightTexture->SetUnit(3); else HeightTexture->UnsetUnit(3);
-
-		//深度图设置
-		shader->SetUniform1i("u_showDepth", showDepth); //是否显示深度图
-		shader->SetUniform2f("u_showDepthRange", showDepthRange.x, showDepthRange.y); //深度图的范围
 
 		//阴影深度图
 		int lightSize = Application::GetInstance()->renderer->lights.size();

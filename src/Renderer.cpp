@@ -180,6 +180,10 @@ void Renderer::AddToDrawList(const VertexArray& va, std::shared_ptr<Material> ma
 	combineDrawList.push_back(info);
 }
 
+bool Renderer::Draw(const DrawInfo& drawInfo, const Material& material) {
+	return Draw(*drawInfo.va, material, drawInfo.modelMatrix, drawInfo.ib, drawInfo.instanceCount, drawInfo.mode, drawInfo.count);
+}
+
 //渲染顶点数据，ib可以为空
 bool Renderer::Draw(const VertexArray& va, const Material& material, glm::mat4 modelMatrix, const IndexBuffer* ib, const unsigned int instanceCount, unsigned int mode, const unsigned int count) const
 {

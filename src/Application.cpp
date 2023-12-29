@@ -136,39 +136,39 @@ start:
 			renderer->ResetStatisticData();
 
 			//为每一个灯光渲染阴影贴图
-			renderer->ApplyViewportSize(renderer->depthFrameBuffer->width, renderer->depthFrameBuffer->height, false, false);
-			GLCALL(glCullFace(GL_FRONT)); //使用正面剔除的方式修复阴影平移
-			renderer->DrawShadowMap(); //绑定到深度帧缓冲或默认帧缓冲并clear，并渲染灯光空间的深度图
-			GLCALL(glCullFace(GL_BACK)); //恢复背面剔除
-
-			//应用光照数据（必须在渲染阴影贴图之后，因为DrawShadowMap中修改了光照的空间矩阵）
-			renderer->ApplyLights();
+			bool displayShadowMap = renderer->DrawShadowMap(); //绑定到深度帧缓冲或默认帧缓冲并clear，并渲染灯光空间的深度图
 
 			//恢复viewport（这里除了可能被上面的渲染阴影贴图修改viewport，还可能被上一帧修改，比如后处理中的resizeViewport）
 			renderer->ApplyViewportSize(renderer->ViewportWidth, renderer->ViewportHeight, false, false);
 
-			//若需要后处理，则切换到自定义帧缓冲
+			//确定要写入的帧缓冲：若需要后处理，则写入到自定义帧缓冲
 			if (hasPostProcessing)
 			{
-				renderer->SwitchAnotherCustomFrameBuffer(); //绑定到自定义帧缓冲并clear
+				renderer->SwitchAnotherCustomFrameBuffer(); //绑定并clear
 			}
-			//否则切换到默认帧缓冲
+			//否则写入到默认帧缓冲
 			else
 			{
-				renderer->SwitchDefaultFrameBuffer(); //绑定到默认帧缓冲并clear
+				renderer->SwitchDefaultFrameBuffer(); //绑定并clear
 			}
 
-			//若需要多重采样，则渲染到多重采样帧缓冲（虽然最终选择了多重采样帧缓冲，但上面的切换当前帧缓冲和clear依然要执行）
+			//若需要多重采样，则渲染到多重采样帧缓冲（虽然最终选择了多重采样帧缓冲，但上面的确定当前帧缓冲和clear依然要执行）
 			if (renderer->multiSample > 0)
-			{
-				renderer->BindMultiSampleFrameBuffer(); //绑定到多重采样帧缓冲并clear
+			{ 
+				if (displayShadowMap == false)
+					renderer->BindMultiSampleFrameBuffer(); //绑定到多重采样帧缓冲并clear
+				else
+					renderer->stepCount++; //对齐上面BindMultiSampleFrameBuffer中clear占用的一次step
 			}
+
+			//应用光照数据（必须在渲染阴影贴图之后，因为DrawShadowMap中修改了光照的空间矩阵）
+			renderer->ApplyLights();
 
 			//渲染图像
 			testMenu.OnRender();
 
 			//若多重采样，则渲染结果位块传送到当前帧缓冲（自定义帧缓冲或默认帧缓冲）
-			if (renderer->multiSample > 0)
+			if (renderer->multiSample > 0 && displayShadowMap == false)
 			{
 				renderer->BlitMultiSampleFramebufferToCurrentFrameBuffer();
 			}

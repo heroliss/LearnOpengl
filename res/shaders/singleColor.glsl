@@ -2,10 +2,6 @@
 #version 450 core
 
 in vec3 position;
-in vec3 normal;
-in vec2 texCoord;
-in vec3 tangent;
-in vec3 bitangent;
 
 uniform mat4 u_Model;
 layout(binding = 0, std140) uniform Matrices

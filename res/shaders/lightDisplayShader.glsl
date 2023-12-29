@@ -26,7 +26,10 @@ struct Light
     int type;
     bool useBlinnPhong;
     float brightness;
+    bool castShadow;
     int shadowPCFSize;
+    float shadowBias;
+    float shadowBiasChangeRate;
     vec3 pos; //光源位置 (平行光无用)
     vec3 direction; //照射方向（点光源无用）
     vec3 color;

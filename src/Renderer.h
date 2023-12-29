@@ -13,7 +13,7 @@
 #include <map>
 #include "glm/gtc/type_ptr.hpp"
 #include "DepthFramebuffer.h"
-#include "../res/Materials/SimpleDepthMaterial.h"
+#include "../res/Materials/DepthOnlyMaterial.h"
 
 struct PrimitiveCountInfo
 {
@@ -97,7 +97,7 @@ public:
 	int ViewportWidth;
 	int ViewportHeight;
 	float GetViewportAspect() { return (float)ViewportWidth / ViewportHeight; }
-	unsigned int multiSample = 0; //用于自定义的多重采样framebuffer
+	unsigned int multiSample = 16; //用于自定义的多重采样framebuffer
 
 	Camera camera;
 	mutable PrimitiveCountInfo primitiveCountInfo;
@@ -105,14 +105,14 @@ public:
 	mutable int drawCallCount = 0;
 	mutable int clearCount = 0;
 	int postProcessCount = 0;
-	int stepCountLimit = 1000000000;
+	int stepCountLimit = 0;
 
 	//-------------------UniformBuffer----------------------
 	std::shared_ptr<UniformBuffer> matricesUniformBuffer;
 	std::shared_ptr<UniformBuffer> lightsUniformBuffer;
 	void InitUniformBuffers() {
 		//视图矩阵和投影矩阵
-		matricesUniformBuffer = std::make_shared<UniformBuffer>(nullptr, sizeof(glm::mat4) * 2);
+		matricesUniformBuffer = std::make_shared<UniformBuffer>(nullptr, sizeof(glm::mat4) * 2 + sizeof(float) * 2);
 		matricesUniformBuffer->BindPoint(0/*, sizeof(glm::mat4) * 2, 0  这里后两个参数可以省略*/);
 		lightsUniformBuffer = std::make_shared<UniformBuffer>(nullptr, 16 + Light::GetSize() * MAX_LIGHT_COUNT);
 		lightsUniformBuffer->BindPoint(1);
@@ -126,7 +126,7 @@ public:
 	std::shared_ptr<Framebuffer> frameBuffer2;
 	std::shared_ptr<Framebuffer> multiSampleFrameBuffer;
 	std::shared_ptr<DepthFramebuffer> depthFrameBuffer;
-	std::shared_ptr<SimpleDepthMaterial> simpleDepthMaterial;
+	std::shared_ptr<DepthOnlyMaterial> depthOnlyMaterial;
 
 	float frameBuffer_quadVertices[4 * 6] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
 		// positions   // texCoords
@@ -156,8 +156,8 @@ public:
 		//创建多重采样FrameBuffer（用于MSAA抗锯齿）
 		SetMultiSample(multiSample);
 		//创建深度FrameBuffer（用于阴影）
-		depthFrameBuffer = std::make_shared<DepthFramebuffer>(1024, 1024); //创建深度FrameBuffer并设置尺寸
-		simpleDepthMaterial = std::make_shared<SimpleDepthMaterial>(); //创建简单深度材质用于渲染阴影
+		depthFrameBuffer = std::make_shared<DepthFramebuffer>();
+		depthOnlyMaterial = std::make_shared<DepthOnlyMaterial>(); //创建简单深度材质用于渲染阴影
 	}
 
 	void SetMultiSample(unsigned int multiSample)
@@ -286,51 +286,98 @@ public:
 		}
 	}
 
-	//渲染阴影贴图
-	void DrawShadowMap() {
+	//渲染阴影贴图(返回值表示是否渲染到默认帧缓冲)
+	bool DrawShadowMap() {
+		//修改视口大小为阴影帧缓冲设置的大小
+		ApplyViewportSize(depthFrameBuffer->width, depthFrameBuffer->height, false, false);
+
+		bool drawInDefaultFrameBuffer = false;
 		if (lights.size() > 0)
 		{
 			for (int i = 0; i < lights.size(); i++)
 			{
 				auto& light = lights[i];
-				if (light->type == LightType::PARALLEL_LIGHT && light->brightness > 0 && light->color != glm::vec3(0))
+
+				//跳过无亮度或关闭了阴影投射的灯光
+				if (light->type == LightType::NONE_LIGHT || light->castShadow == false || light->brightness <= 0 || light->color == glm::vec3(0))
 				{
-					//如果超过step步数，则将该灯光的深度纹理渲染到默认帧缓冲显示出来
-					if (stepCount + combineDrawList.size() + 1 >= stepCountLimit) {
-						SwitchDefaultFrameBuffer(); //内含clear，clear中也有一步step
+					continue;
+				}
+
+				//选择渲染位置：如果超过step步数，则渲染到默认帧缓冲，显示出来
+				if (stepCount + combineDrawList.size() + 1 >= stepCountLimit) {
+					//让视口大小适应窗口尺寸，以使阴影图可以完整显示出来
+					float ratio = (float)depthFrameBuffer->width / depthFrameBuffer->height;
+					float ratioWindow = (float)WindowWidth / WindowHeight;
+					int width, height;
+					if (ratio < ratioWindow) {
+						height = std::min(depthFrameBuffer->height, WindowHeight);
+						width = ratio * height;
 					}
 					else {
-						std::shared_ptr<Texture> texture = light->shadowTexture;
-						//用灯光中的阴影纹理设置到depthFrameBuffer并绑定
-						depthFrameBuffer->SetDepthTextureAndBind(texture);
-						Clear();
-						//设置阴影纹理的纹理单元 
-						texture->SetUnit(10 + i);//这里规定从第十个纹理开始算作阴影深度纹理（设置纹理单元必须在设置纹理环绕和缩放方式后才能使用，SetDepthTextureAndBind中设置了这些）
+						width = std::min(depthFrameBuffer->width, WindowWidth);
+						height = width / ratio;
 					}
-					//构建灯光的空间矩阵
-					glm::mat4 lightProjection = glm::ortho(light->shadowOrthoRect.x, light->shadowOrthoRect.y, light->shadowOrthoRect.z, light->shadowOrthoRect.w, light->shadowNearAndFar.x, light->shadowNearAndFar.y);
-					glm::mat4 lightView = glm::lookAt(light->pos, light->pos + light->direction, glm::vec3(0, 1, 0));
-					glm::mat4 lightSpaceMatrix = lightProjection * lightView;
-					simpleDepthMaterial->lightSpaceMatrix = lightSpaceMatrix; //填充到简单深度shader中
-					light->lightSpaceMatrix = lightSpaceMatrix; //填充到光照信息中
-
-					//使用简单深度材质渲染所有物体，得到灯光空间下的深度纹理
-					for (int i = 0; i < combineDrawList.size(); i++)
-					{
-						auto& info = combineDrawList[i];
-						Draw(*info.va, *simpleDepthMaterial, info.modelMatrix, info.ib, info.instanceCount, info.mode, info.count);
-					}
+					ApplyViewportSize(width, height, false, false);		
+					drawInDefaultFrameBuffer = true;
+					SwitchDefaultFrameBuffer(); //内含clear，clear中也有一步step
 				}
+				else //否则渲染到阴影帧缓冲
+				{
+					std::shared_ptr<Texture> texture = light->shadowTexture;
+					depthFrameBuffer->SetDepthTextureAndBind(texture); //用灯光中的阴影纹理设置到depthFrameBuffer并绑定
+					Clear();
+					texture->SetUnit(10 + i);//设置阴影纹理的纹理单元，这里规定从第十个纹理开始算作阴影深度纹理（设置纹理单元必须在设置纹理环绕和缩放方式后才能使用，SetDepthTextureAndBind中设置了这些）
+				}
+
+				//计算光照空间的视图矩阵
+				glm::mat4 lightView = glm::lookAt(light->pos, light->pos + light->direction, glm::vec3(0, 1, 0));
+				//计算光照空间的透视矩阵，并和视图矩阵合并为空间矩阵
+				glm::mat4 lightSpaceMatrix = glm::mat4(1);
+				if (light->type == LightType::PARALLEL_LIGHT) //计算平行光的空间矩阵
+				{
+					glm::mat4 lightProjection = glm::ortho(light->shadowOrthoRect.x, light->shadowOrthoRect.y, light->shadowOrthoRect.z, light->shadowOrthoRect.w, light->shadowNearAndFar.x, light->shadowNearAndFar.y);
+					lightSpaceMatrix = lightProjection * lightView;
+				}
+				else if (light->type == LightType::SPOT_LIGHT) //计算聚光灯的空间矩阵
+				{
+					glm::mat4 lightProjection = glm::perspective(glm::radians(light->cutoffAngle.y * 2), 1.0f, light->shadowNearAndFar.x, light->shadowNearAndFar.y);
+					lightSpaceMatrix = lightProjection * lightView;
+				}
+
+				//光照空间矩阵填充到光照信息中
+				light->lightSpaceMatrix = lightSpaceMatrix;
+				//光照空间矩阵填充到用于渲染阴影图的shader中
+				depthOnlyMaterial->lightSpaceMatrix = lightSpaceMatrix;
+				depthOnlyMaterial->linearizeDepth = light->type != LightType::PARALLEL_LIGHT; //仅用于展示深度图，仅平行光时不启用线性化深度
+				depthOnlyMaterial->nearAndFar = light->shadowNearAndFar; //仅用于展示深度图
+				depthOnlyMaterial->showDepthRange = light->shadowShowDepthRange; //仅用于展示深度图
+
+				//使用正面剔除的方式修复阴影失真(Shadow Acne)
+				if (light->shadowFrontFaceCulling) {
+					GLCALL(glCullFace(GL_FRONT));
+				}
+
+				//遍历所有物体渲染阴影图
+				for (int i = 0; i < combineDrawList.size(); i++)
+				{
+					auto& info = combineDrawList[i];
+					Draw(*info.va, *depthOnlyMaterial, info.modelMatrix, info.ib, info.instanceCount, info.mode, info.count);
+				}
+
+				GLCALL(glCullFace(GL_BACK)); //恢复背面剔除
 			}
 		}
+		return drawInDefaultFrameBuffer;
 	}
 
 	void ResetCamera() {
 		camera = Camera();
-		camera.ViewMatrixChangedEvent.AddHandler([this](glm::mat4 ViewMatrix) {
-			matricesUniformBuffer->SetData(glm::value_ptr(ViewMatrix), sizeof(glm::mat4), 0); });
-		camera.ProjectionMatrixChangedEvent.AddHandler([this](glm::mat4 ProjectionMatrix) {
-			matricesUniformBuffer->SetData(glm::value_ptr(ProjectionMatrix), sizeof(glm::mat4), sizeof(glm::mat4)); });
+		camera.ViewMatrixChangedEvent.AddHandler([this]() {
+			matricesUniformBuffer->SetData(glm::value_ptr(camera.ViewMatrix), sizeof(glm::mat4), 0); });
+		camera.ProjectionMatrixChangedEvent.AddHandler([this]() {
+			matricesUniformBuffer->SetData(glm::value_ptr(camera.ProjectionMatrix), sizeof(glm::mat4) + 2 * sizeof(float), sizeof(glm::mat4));
+			});
 		camera.aspect = GetViewportAspect();
 		camera.UpdateOrthoRectByViewport(ViewportWidth, ViewportHeight);
 		camera.UpdateProjectionMatrix();
@@ -354,6 +401,7 @@ public:
 	//std::map<float, DrawInfo> transparentDrawMap;
 
 	void AddToDrawList(const VertexArray& va, std::shared_ptr<Material> material, glm::mat4 modelMatrix = glm::mat4(1), const IndexBuffer* ib = nullptr, const unsigned int instanceCount = 1, unsigned int mode = GL_TRIANGLES, const unsigned int count = 0);
+	bool Draw(const DrawInfo& drawInfo, const Material& material);
 	bool Draw(const VertexArray& va, const Material& material, glm::mat4 modelMatrix = glm::mat4(1), const IndexBuffer* ib = nullptr, const unsigned int instanceCount = 1, unsigned int mode = GL_TRIANGLES, const unsigned int count = 0) const;
 
 	void SetPolygonFillMode() {

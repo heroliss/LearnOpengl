@@ -73,6 +73,7 @@ void Camera::OnInspectorGUI()
 			SetNextItemWidth(60);
 			dirty |= DragFloat("Field of View (vertical)", &fovy, 0.1f);
 		}
+
 		//修改投影矩阵
 		if (dirty) {
 			UpdateProjectionMatrix();

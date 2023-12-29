@@ -89,6 +89,7 @@ namespace test {
 		lightDisplayMaterial = std::make_unique<LightDisplayMaterial>();		//显示光源信息的材质
 		singleColorMaterial = std::make_unique<SingleColorMaterial>();
 		texcoordDisplayMaterial = std::make_unique<TexcoordDisplayMaterial>();
+		depthDisplayMaterial = std::make_unique<DepthDisplayMaterial>();
 
 		//加载天空盒立方体贴图
 		skybox.LoadDefaultCubemap();
@@ -178,8 +179,6 @@ namespace test {
 		app->renderer->SetPolygonFillMode(); //填充模式	
 		GLCALL(glDisable(GL_STENCIL_TEST));//关闭模板测试
 
-
-
 		//若要显示边框，则将所有物体渲染过的像素写入模板（天空盒除外）
 		if (showOutline)
 		{
@@ -212,8 +211,13 @@ namespace test {
 		//渲染物体的方法
 		auto drawObject = [=](DrawInfo& info)
 			{
-				if (showTexcoord) app->renderer->Draw(*info.va, *texcoordDisplayMaterial, info.modelMatrix, info.ib, info.instanceCount, info.mode, info.count); //渲染纹理坐标
-				else app->renderer->Draw(*info.va, *info.material, info.modelMatrix, info.ib, info.instanceCount, info.mode, info.count); //渲染物体
+				if (showTexcoord) app->renderer->Draw(info, *texcoordDisplayMaterial); //渲染纹理坐标
+				else if (showDepth)
+				{
+					depthDisplayMaterial->orthoRatio = app->renderer->camera.orthoRatio;
+					app->renderer->Draw(info, *depthDisplayMaterial); //渲染深度图
+				}
+				else app->renderer->Draw(info, *info.material); //渲染物体
 			};
 
 		//渲染不透明物体
@@ -267,6 +271,7 @@ namespace test {
 				auto& info = app->renderer->combineDrawList[i];
 				app->renderer->Draw(*info.va, *singleColorMaterial, glm::scale(info.modelMatrix, glm::vec3(1.02f)), info.ib, info.instanceCount, info.mode, info.count);
 			}
+			GLCALL(glStencilFunc(GL_ALWAYS, 1, 0xFF)); //恢复目标测试为总是通过
 		}
 
 		//绘制法线（透明）
@@ -448,11 +453,11 @@ namespace test {
 			ImGui::Checkbox("Show depth", &showDepth);
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(160);
-			if (ImGui::DragFloat2("Range", &showDepthRange.x, 1.0f, 1.0f))
+			if (ImGui::DragFloat2("Range", &depthDisplayMaterial->range.x, 1.0f, 1.0f))
 			{
-				if (showDepthRange.x < 1) showDepthRange.x = 1;
-				if (showDepthRange.y < 1) showDepthRange.y = 1;
-				if (showDepthRange.x > showDepthRange.y) showDepthRange.x = showDepthRange.y;
+				if (depthDisplayMaterial->range.x < 1) depthDisplayMaterial->range.x = 1;
+				if (depthDisplayMaterial->range.y < 1) depthDisplayMaterial->range.y = 1;
+				if (depthDisplayMaterial->range.x > depthDisplayMaterial->range.y) depthDisplayMaterial->range.x = depthDisplayMaterial->range.y;
 			}
 
 			ImGui::SetNextItemWidth(100);
@@ -535,7 +540,6 @@ namespace test {
 				{
 					Application::GetInstance()->renderer->AddLight();
 				}
-
 			}
 
 			if (lights.size() > 0)
@@ -562,6 +566,9 @@ namespace test {
 			{
 				Light& light = *lights[selectedItemIndex];
 				std::string id = "##" + std::to_string(selectedItemIndex);
+
+				bool updateShadowBias = false;
+
 				//光源类型
 				static const char* items[]{ "Disable", "parallel light","point light","spot light" };
 				int selecteditem = light.type;
@@ -569,6 +576,7 @@ namespace test {
 				if (ImGui::Combo(("Light " + id).c_str(), &selecteditem, items, IM_ARRAYSIZE(items)))
 				{
 					light.type = LightType(selecteditem);
+					updateShadowBias |= true;
 				}
 
 				//删除光源
@@ -626,16 +634,54 @@ namespace test {
 					ImGui::DragFloat2(("cutoffAngle(inner/outer)" + id).c_str(), &light.cutoffAngle.x);
 				}
 
+				//光照模型
+				ImGui::Checkbox(("Use Blinn-Phong" + id).c_str(), (bool*)&light.useBlinnPhong);
+
 				ImGui::Spacing();
 
-				//阴影设置
-				ImGui::SetNextItemWidth(30);
-				ImGui::DragInt(("Shadow PCF size" + id).c_str(), &light.shadowPCFSize, 1, 0, 9);
-				ImGui::SetNextItemWidth(200);
-				ImGui::DragFloat4(("Shadow ortho rect" + id).c_str(), &light.shadowOrthoRect.x, 1, 0, 0, "%.1f");
-				ImGui::SetNextItemWidth(200);
-				ImGui::DragFloat2(("Shadow near and far" + id).c_str(), &light.shadowNearAndFar.x, 1, 0, 0, "%.1f");
+				//阴影设置	
+				ImGui::Checkbox(("Cast Shadow" + id).c_str(), (bool*)&light.castShadow);
 
+				ImGui::SetNextItemWidth(50);
+				ImGui::DragInt(("Shadow PCF size" + id).c_str(), &light.shadowPCFSize, 1, 0, 9);
+				ImGui::SetItemTooltip("PCF调大出现阴影失真时，建议调小Bias的Change rate");
+				if (ImGui::Checkbox(("开启正面剔除" + id).c_str(), &light.shadowFrontFaceCulling))
+				{
+					if (light.shadowFrontFaceCulling) {
+						light.shadowBias = 0; //开启正面剔除时自动关闭深度偏移
+					}
+					else {
+						updateShadowBias |= true; //恢复深度偏移
+					}
+				}
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(50);
+				if (light.shadowFrontFaceCulling == false) {
+					updateShadowBias |= ImGui::DragFloat(("Max bias" + id).c_str(), &light.shadowBiasSettingValue, 0.01f);
+					ImGui::SameLine();
+					ImGui::SetNextItemWidth(50);
+					ImGui::DragFloat(("Change rate" + id).c_str(), &light.shadowBiasChangeRate, 0.01f);
+				}
+				else {
+					ImGui::Text("Shadow bias disabled");
+				}
+
+				ImGui::SetNextItemWidth(200);
+				updateShadowBias |= ImGui::DragFloat2(("Shadow near and far" + id).c_str(), &light.shadowNearAndFar.x, 1, 0, 0, "%.1f");
+				if (updateShadowBias && light.shadowFrontFaceCulling == false) {
+					light.UpdateShadowBiasBySettingValue();
+				}
+
+				if (light.type == LightType::PARALLEL_LIGHT)
+				{
+					ImGui::SetNextItemWidth(200);
+					ImGui::DragFloat4(("Shadow ortho rect" + id).c_str(), &light.shadowOrthoRect.x, 1, 0, 0, "%.1f");
+				}
+
+				//----以下是调试相关----
+				ImGui::Text("Debug:");
+				ImGui::SetNextItemWidth(200);
+				ImGui::DragFloat2(("Shadow show depth range" + id).c_str(), &light.shadowShowDepthRange.x, 1, 0, 0, "%.1f"); //阴影深度图的显示范围，仅用于调试
 				//gizmo
 				ImGui::Checkbox(("Show gizmo" + id).c_str(), &light.showGizmo);
 				ImGui::SameLine(0, 20);
@@ -652,7 +698,6 @@ namespace test {
 					light.UpdateAutoRotateAxisByEulerAngles();
 				}
 				ImGui::Checkbox(("Keep looking at center" + id).c_str(), &light.autoLookAtCenter);
-				ImGui::Checkbox(("Use Blinn-Phong" + id).c_str(), &light.useBlinnPhong);
 			}
 		}
 

@@ -263,13 +263,16 @@
     <ClInclude Include="src\DepthFramebuffer.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="res\Materials\SimpleDepthMaterial.h">
+    <ClInclude Include="res\Materials\DepthOnlyMaterial.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\UniformBuffer.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\Event.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="res\Materials\DepthDisplayMaterial.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

@@ -4,19 +4,21 @@
 #include <Texture.h>
 #include <string>
 
-class SimpleDepthMaterial : public Material
+class DepthDisplayMaterial : public Material
 {
 public:
-	glm::mat4 lightSpaceMatrix;
+	glm::vec2 range = glm::vec2(1, 1000);
+	float orthoRatio;
 	std::string GetShaderFilePath() const override
 	{
-		return "res/shaders/simpleDepthShader.glsl";
+		return "res/shaders/depthDisplay.glsl";
 	}
 	void ApplyUniforms(glm::mat4 modelMatrix) const override
 	{
 		auto shader = GetShader();
 		shader->SetUniformMat4f("u_Model", modelMatrix);
-		shader->SetUniformMat4f("lightSpaceMatrix", lightSpaceMatrix);
+		shader->SetUniform2f("u_showDepthRange", range.x, range.y);
+		shader->SetUniform1f("u_orthoRatio", orthoRatio);
 	}
 };
 

@@ -11,10 +11,10 @@ private:
 	Renderbuffer m_renderBuffer;
 
 public:
-	int width; //这里没用unsigned只是因为方便绑定到imgui
-	int height;
+	int width = 4096; //这里没用unsigned只是因为方便绑定到imgui，并且这里是初始值
+	int height = 4096;
 
-	DepthFramebuffer(unsigned int width, unsigned int height);
+	DepthFramebuffer();
 	~DepthFramebuffer();
 	void SetDepthTextureAndBind(std::shared_ptr<Texture> texture);
 

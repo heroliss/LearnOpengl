@@ -12,7 +12,7 @@
 #include "../res/Materials/LightDisplayMaterial.h" //载入材质的象征性做法
 #include "../res/Materials/SingleColorMaterial.h" //载入材质的象征性做法
 #include "../res/Materials/TexcoordDisplayMaterial.h" //载入材质的象征性做法
-#include "../res/Materials/SimpleDepthMaterial.h" //载入材质的象征性做法
+#include "../res/Materials/DepthDisplayMaterial.h" //载入材质的象征性做法
 
 #include "../res/Materials/PostProcess/ResizeViewportMaterial.h"
 #include "../res/Materials/PostProcess/InverseColor.h"
@@ -44,14 +44,14 @@ namespace test {
 		std::unique_ptr<SingleColorMaterial> singleColorMaterial;
 		std::unique_ptr<SingleColorMaterial> zeroColorMaterial;
 		std::unique_ptr<TexcoordDisplayMaterial> texcoordDisplayMaterial;
+		std::unique_ptr<DepthDisplayMaterial> depthDisplayMaterial;
 
+		bool showTexcoord;
 		bool showDepth;
-		glm::vec2 showDepthRange = glm::vec2(1, 500); //预设的深度图范围
 		bool showSkybox;
 		bool showOutline;
 		bool showLine;
 		bool showPoint;
-		bool showTexcoord;
 		bool canSeeThrough; //showLine和showPoint时是否可以看到后面
 
 		bool enableNormalTexture = true;
@@ -102,9 +102,6 @@ namespace test {
 		void CommonMaterialSetting(std::shared_ptr<BaseMaterial3D> material) {
 			//设置环境立方体贴图
 			material->cubemap = showSkybox ? skybox.GetCubemap() : nullptr;
-			//设置是否显示深度
-			material->showDepth = showDepth;
-			material->showDepthRange = showDepthRange;
 		}
 
 		std::shared_ptr<BaseMaterial3D> CreateModelMaterial(const Model* model, const Mesh* mesh) {
