@@ -70,9 +70,20 @@ public:
 		}
 		shader->SetUniform1iv("u_shadowMaps", lightSize, samplers.data());
 
+		//阴影深度立方体图
+		samplers.clear();
+		for (int i = 0; i < lightSize; i++)
+		{
+			samplers.push_back(20 + i);
+		}
+		shader->SetUniform1iv("u_shadowCubemaps", lightSize, samplers.data());
+
 		//环境立方体贴图，用于反射和折射
 		shader->SetUniform1i("u_cubemap", 4);
-		if (cubemap != nullptr) cubemap->SetUnit(4); else Cubemap::UnsetUnit(4);
+		if (cubemap != nullptr) 
+			cubemap->SetUnit(4); 
+		else
+			Cubemap::UnsetUnit(4);
 
 		//折射
 		shader->SetUniform1i("u_enableRefract", enableRefract);

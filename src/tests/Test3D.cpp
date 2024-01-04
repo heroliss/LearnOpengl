@@ -408,9 +408,6 @@ namespace test {
 				ImGui::SameLine();
 				ImGui::Text(("x" + std::to_string(app->renderer->multiSample)).c_str());
 			}
-			//阴影分辨率
-			ImGui::SetNextItemWidth(200);
-			ImGui::DragInt2("Shadow resolution", &app->renderer->depthFrameBuffer->width, 1, 1, 9999);
 		}
 
 		//----------------------------调试---------------------------------------
@@ -589,7 +586,7 @@ namespace test {
 
 				//光源位置
 				ImGui::SetNextItemWidth(200);
-				ImGui::DragFloat3(("position" + id).c_str(), &light.pos.x);
+				ImGui::DragFloat3(("position" + id).c_str(), &light.pos.x, 0.1f);
 
 				//光照方向(显示为欧拉角角度数, 但存储为方向向量，所以需要转换)  TODO: 欧拉角旋转有问题
 				glm::vec3 originalDirection = glm::vec3(0, 0, -1);
@@ -642,9 +639,22 @@ namespace test {
 				//阴影设置	
 				ImGui::Checkbox(("Cast Shadow" + id).c_str(), (bool*)&light.castShadow);
 
-				ImGui::SetNextItemWidth(50);
-				ImGui::DragInt(("Shadow PCF size" + id).c_str(), &light.shadowPCFSize, 1, 0, 9);
-				ImGui::SetItemTooltip("PCF调大出现阴影失真时，建议调小Bias的Change rate");
+				ImGui::SetNextItemWidth(200);
+				ImGui::DragInt2("Shadow resolution", (int*)&light.shadowTextureSize.x, 1, 1, 9999, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp); //阴影分辨率
+
+				if (light.type == LightType::POINT_LIGHT)
+				{
+					ImGui::SetNextItemWidth(50);
+					ImGui::DragFloat(("Shadow PCF Sample Disk Radius" + id).c_str(), &light.shadowSampleDiskRadius, 0.01f);
+					ImGui::SetItemTooltip("PCF(Percentage-Closer Filtering)阴影立方体贴图的采样方向偏移圆盘半径，采样数量固定为20，调大出现阴影失真时，建议调小Bias的Change rate");
+				}
+				else
+				{
+					ImGui::SetNextItemWidth(50);
+					ImGui::DragInt(("Shadow PCF size" + id).c_str(), &light.shadowPCFSize, 1, 0, 9, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
+					ImGui::SetItemTooltip("PCF(Percentage-Closer Filtering)阴影贴图的采样偏移，边长为size*2+1的正方形范围，采样数量为(size*2+1)*2，调大会影响性能，出现阴影失真时，建议调小Bias的Change rate");
+				}
+
 				if (ImGui::Checkbox(("开启正面剔除" + id).c_str(), &light.shadowFrontFaceCulling))
 				{
 					if (light.shadowFrontFaceCulling) {
@@ -657,7 +667,7 @@ namespace test {
 				ImGui::SameLine();
 				ImGui::SetNextItemWidth(50);
 				if (light.shadowFrontFaceCulling == false) {
-					updateShadowBias |= ImGui::DragFloat(("Max bias" + id).c_str(), &light.shadowBiasSettingValue, 0.01f);
+					updateShadowBias |= ImGui::DragFloat(("Max bias" + id).c_str(), &light.shadowBiasSettingValue, 0.001f);
 					ImGui::SameLine();
 					ImGui::SetNextItemWidth(50);
 					ImGui::DragFloat(("Change rate" + id).c_str(), &light.shadowBiasChangeRate, 0.01f);

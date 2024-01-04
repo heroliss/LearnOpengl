@@ -15,12 +15,14 @@ struct Light
     int shadowPCFSize;
     float shadowBias;
     float shadowBiasChangeRate;
+    float shadowSampleDiskRadius;
     vec3 pos; //光源位置 (平行光无用)
     vec3 direction; //照射方向（点光源无用）
     vec3 color;
     vec3 attenuation; //衰减系数 （分别为常数项、一次项、二次项系数 , 一般常数项固定为1，主要调二次项系数）
     vec2 cutoffAngle; //聚光范围 (内圈和外圈，度数表示，仅聚光类型有用)
-    mat4 lightSpaceMatrix;
+    vec2 shadowNearAndFar;
+    mat4 lightSpaceMatrix; //非点光源用的光照空间矩阵
 };
 
 layout(binding = 1, std140) uniform Lights
@@ -84,7 +86,10 @@ void main()
     for (int i = 0; i < u_lightNum; i++)
     {
         Light light = u_lights[i];
-        v_FragPosLightSpaces[i] = light.lightSpaceMatrix * worldPos;
+
+        //非点光源时计算片元在光照空间中的位置
+        if(light.type != POINT_LIGHT)
+            v_FragPosLightSpaces[i] = light.lightSpaceMatrix * worldPos; 
 
         //TOOD:下面是乱加的：用于解决 加了法线贴图后背面被照亮 和 光源在背面也有高光泄露 的问题（如果开启了阴影并且不是正面剔除，加了法线贴图后背面被照亮没有这个问题了）
         vec3 lightDir;
@@ -125,6 +130,7 @@ uniform vec3 u_refractColor; //折射颜色
 uniform float u_refractiveIndex; //折射率
 //阴影
 uniform sampler2D u_shadowMaps[MAX_LIGHT_COUNT]; //阴影深度纹理，与u_lights对应
+uniform samplerCube u_shadowCubemaps[MAX_LIGHT_COUNT]; //阴影立方体深度纹理，与u_lights对应
 
 out vec4 outColor;
 
@@ -133,6 +139,61 @@ in mat3 v_TBN;
 in vec3 v_FragPos; //世界空间的片元位置
 in vec4 v_FragPosLightSpaces[MAX_LIGHT_COUNT]; //光照空间的片元位置
 in float v_LightsEnable[MAX_LIGHT_COUNT];
+
+const vec3 sampleOffsetDirections[20] = vec3[]
+(
+   vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1), 
+   vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
+   vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
+   vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
+   vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
+);
+
+float ShadowCalculation_pointLight(int index, vec3 lightDir, vec3 normal)
+{
+    Light light = u_lights[index];
+    float bias = light.shadowBias;
+    float d = dot(normal, lightDir);
+    bias = clamp(1 / (light.shadowBiasChangeRate * d), 0, 1) * bias;
+
+    float shadow = 0.0;
+    vec3 lightToFrag = v_FragPos - u_lights[index].pos; 
+    float currentDepth = length(lightToFrag);
+
+    if(currentDepth > light.shadowNearAndFar.y)
+        return 0.0;
+
+    //float diskRadius = (light.shadowSampleDiskRadius + (length(u_viewPos - v_FragPos) / light.shadowNearAndFar.y));
+    float diskRadius = light.shadowSampleDiskRadius;
+
+    for(int i = 0; i < 20; ++i)
+    {
+        float closestDepth = texture(u_shadowCubemaps[index], lightToFrag + sampleOffsetDirections[i] * diskRadius).r;
+        closestDepth *= light.shadowNearAndFar.y;   // Undo mapping [0;1]
+        if(currentDepth - bias > closestDepth)
+            shadow += 1.0;
+    }
+    shadow /= 20;
+
+//    //samples需要从外部设置得来
+//    float offset = 0.1;
+//    for(float x = -offs-et; x < offset; x += offset / (samples * 0.5))
+//    {
+//        for(float y = -offset; y < offset; y += offset / (samples * 0.5))
+//        {
+//            for(float z = -offset; z < offset; z += offset / (samples * 0.5))
+//            {
+//                float closestDepth = texture(u_shadowCubemaps[index], lightToFrag + vec3(x, y, z) * diskRadius).r; 
+//                closestDepth *= light.shadowNearAndFar.y;   // Undo mapping [0;1]
+//                if(currentDepth - bias > closestDepth)
+//                    shadow += 1.0;
+//            }
+//        }
+//    }
+//    shadow /= pow(samples, 3);
+
+    return shadow;
+}
 
 float ShadowCalculation(int index, vec3 lightDir, vec3 normal)
 {
@@ -159,12 +220,11 @@ float ShadowCalculation(int index, vec3 lightDir, vec3 normal)
     //bias = max(bias * (1.0 - d), 0.0001);
     //bias = bias * tan(acos(d));
     //bias = clamp(bias, 0.0, u_lights[index].shadowBias);
-
-
+     
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(u_shadowMaps[index], 0);
     
-    //采样周围边长为shadowcPCFSize*2+1正方形区域内的所有阴影深度值，与当前片元的阴影深度作比较（可优化为泊松圆盘采样(Poisson-Disk Sampling)）
+    //采样周围边长为shadowPCFSize*2+1正方形区域内的所有阴影深度值，与当前片元的阴影深度作比较（可优化为泊松圆盘采样(Poisson-Disk Sampling)）
     int shadowPCFSize = u_lights[index].shadowPCFSize;
     for(int x = -shadowPCFSize; x <= shadowPCFSize; ++x)
     {
@@ -246,7 +306,7 @@ void main()
                 float cosOuterCutoffAngle = cos(radians(light.cutoffAngle.y));
                 float cosInnerCutoffAngle = cos(radians(light.cutoffAngle.x)); 
                 float epsilon = cosInnerCutoffAngle - cosOuterCutoffAngle;
-                float cosLightAngle = dot(lightDir,  -normalize(light.direction));
+                float cosLightAngle = dot(lightDir, -normalize(light.direction));
                 intensity = clamp((cosLightAngle - cosOuterCutoffAngle) / epsilon, 0.0, 1.0);
             }
         }
@@ -281,7 +341,7 @@ void main()
         vec3 specular = u_specularColor * specularStrength * specularTexColor * lightColor;
         
         //阴影值
-        float shadow = light.castShadow ? ShadowCalculation(i, lightDir, normal) : 0;
+        float shadow = light.castShadow ? light.type == POINT_LIGHT ? ShadowCalculation_pointLight(i, lightDir, normal) : ShadowCalculation(i, lightDir, normal) : 0;
 
         //合并所有光照
         allLightsColor += (diffuse + specular) * intensity * (1.0 - shadow);

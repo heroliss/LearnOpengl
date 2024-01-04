@@ -30,11 +30,13 @@ struct Light
     int shadowPCFSize;
     float shadowBias;
     float shadowBiasChangeRate;
+    float shadowSampleDiskRadius;
     vec3 pos; //光源位置 (平行光无用)
     vec3 direction; //照射方向（点光源无用）
     vec3 color;
     vec3 attenuation; //衰减系数 （分别为常数项、一次项、二次项系数 , 一般常数项固定为1，主要调二次项系数）
     vec2 cutoffAngle; //聚光范围 (内圈和外圈，度数表示，仅聚光类型有用)
+    vec2 shadowNearAndFar;
     mat4 lightSpaceMatrix;
 };
 

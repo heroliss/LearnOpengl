@@ -23,22 +23,21 @@ DepthFramebuffer::~DepthFramebuffer()
 	GLCALL(glDeleteFramebuffers(1, &m_RendererID));
 }
 
+void DepthFramebuffer::SetDepthCubemapAndBind(std::shared_ptr<Cubemap> cubemap)
+{
+	m_cubemap = cubemap;
+	Bind();
+	GLCALL(glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, m_cubemap->GetId(), 0));	
+	//检查帧缓冲是否完整
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+}
+
 void DepthFramebuffer::SetDepthTextureAndBind(std::shared_ptr<Texture> texture)
 {
 	m_texture = texture;
 	Bind();
-	//用2D纹理设置深度附件
-	m_texture->bind();
-	GLfloat borderColor[] = { 1.0, 1.0, 1.0, 1.0 }; //让所有超出深度贴图坐标范围的深度值为1.0
-	m_texture->setParameter(GL_TEXTURE_BORDER_COLOR, borderColor);
-	m_texture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	m_texture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	m_texture->setParameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST); //这里用GL_NEAREST，因为对深度图做线性模糊毫无意义
-	m_texture->setParameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL));
-	GLCALL(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_texture->GetId(), 0)); //附加颜色附件到帧缓冲
-	m_texture->unbind();
-
+	GLCALL(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_texture->GetId(), 0));
 	//检查帧缓冲是否完整
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;

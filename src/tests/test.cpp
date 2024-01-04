@@ -55,7 +55,7 @@ namespace test
 			//目标帧率
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(40);
-			ImGui::DragFloat("TargetFPS", &app->TargetFrameRate, 1, 1, 9999, "%.0f");
+			ImGui::DragFloat("TargetFPS", &app->TargetFrameRate, 1, 1, 9999, "%.0f", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
 			//全屏模式
 			ImGui::SameLine();
 			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 100.0f);
@@ -74,15 +74,22 @@ namespace test
 			//修改宽高
 			bool screenChanged = false;
 			ImGui::SetNextItemWidth(50);
-			screenChanged = ImGui::DragInt("X", &renderer->ViewportWidth, 1, 1, 99999);
+			screenChanged = ImGui::DragInt("X", (int*)&renderer->ViewportWidth, 1, 1, 99999, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(50);
-			screenChanged |= ImGui::DragInt("Viewport Size", &renderer->ViewportHeight, 1, 1, 99999);
+			screenChanged |= ImGui::DragInt("Viewport Size", (int*)&renderer->ViewportHeight, 1, 1, 99999, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
 			if (screenChanged) {
 				app->renderer->ResetViewportSize(renderer->ViewportWidth, renderer->ViewportHeight);
 			}
 			ImGui::SameLine();
 			ImGui::Checkbox("auto resize", &app->AutoResizeViewportByWindow);
+
+			if (app->renderer->usingDebugShowLayer)
+			{
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(100);
+				ImGui::SliderInt("layer", &app->renderer->debugShowLayer, 0, 6, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
+			}
 
 			if (m_CurrentTest)
 			{

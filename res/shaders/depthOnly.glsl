@@ -1,11 +1,12 @@
-##shader vertex
+##common
 #version 450 core
+
+##shader vertex
 layout (location = 0) in vec3 position;
 layout (location = 5) in mat4 instanceMatrix;
 
 uniform mat4 lightSpaceMatrix;
 uniform mat4 u_Model;
-
 
 void main()
 {
@@ -15,7 +16,6 @@ void main()
 
 
 ##shader fragment
-#version 450 core
 uniform bool u_LinearizeDepth;
 uniform vec2 u_nearAndFar;
 uniform vec2 u_showDepthRange;

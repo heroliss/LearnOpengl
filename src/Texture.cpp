@@ -156,6 +156,10 @@ void Texture::setParameter(unsigned int pname, float* param) {
 	GLCALL(glTexParameterfv(GL_TEXTURE_2D, pname, param));
 }
 
+/// <summary>
+/// 设置纹理单元必须在设置纹理环绕和缩放方式后才能使用
+/// </summary>
+/// <param name="unit"></param>
 void Texture::SetUnit(unsigned int unit) const {
 	GLCALL(glBindTextureUnit(unit, m_id));
 }
@@ -170,6 +174,21 @@ void Texture::bind() const {
 
 void Texture::unbind() const {
 	GLCALL(glBindTexture(GL_TEXTURE_2D, 0));
+}
+
+void Texture::InitAsDepth(unsigned int width, unsigned int height)
+{
+	bind();
+	this->width = width;
+	this->height = height;
+	GLfloat borderColor[] = { 1.0, 1.0, 1.0, 1.0 }; //让所有超出深度贴图坐标范围的深度值为1.0
+	setParameter(GL_TEXTURE_BORDER_COLOR, borderColor);
+	setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	setParameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST); //这里用GL_NEAREST，因为对深度图做线性模糊毫无意义
+	setParameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL));
+	unbind();
 }
 
 std::shared_ptr<Texture> Texture::Get(unsigned char r, unsigned char g, unsigned char b)

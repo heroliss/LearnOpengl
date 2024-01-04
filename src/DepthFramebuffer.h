@@ -1,21 +1,21 @@
 #pragma once
 #include "Texture.h"
 #include "Renderbuffer.h"
-#include "MultisampleTexture.h"
+#include "Texture.h"
+#include "Cubemap.h"
 
 class DepthFramebuffer
 {
 private:
 	unsigned int m_RendererID;
 	std::shared_ptr<Texture> m_texture;
+	std::shared_ptr<Cubemap> m_cubemap;
 	Renderbuffer m_renderBuffer;
 
 public:
-	int width = 4096; //这里没用unsigned只是因为方便绑定到imgui，并且这里是初始值
-	int height = 4096;
-
 	DepthFramebuffer();
 	~DepthFramebuffer();
+	void SetDepthCubemapAndBind(std::shared_ptr<Cubemap> cubemap);
 	void SetDepthTextureAndBind(std::shared_ptr<Texture> texture);
 
 	void Bind() const;

@@ -11,6 +11,7 @@ class Cubemap
 private:
 	std::vector<std::string> faces;
 	unsigned int m_id = 0;
+	unsigned int width = 0, height = 0;
 public:
 	Cubemap() {
 		GLCALL(glGenTextures(1, &m_id));
@@ -27,6 +28,26 @@ public:
 
 	void Unbind() const {
 		GLCALL(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
+	}
+
+	inline unsigned int GetId() { return m_id; }
+	inline unsigned int GetWidth() const { return width; }
+	inline unsigned int GetHeight() const { return height; }
+
+	//初始化为深度立方体贴图
+	void InitAsDepth(unsigned int width, unsigned int height) {
+		Bind();
+		this->width = width;
+		this->height = height;
+		for (GLuint i = 0; i < 6; ++i)
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT,
+				width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+		setParameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		setParameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		setParameter(GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+		Unbind();
 	}
 
 	/// <summary>

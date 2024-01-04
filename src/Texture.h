@@ -14,10 +14,13 @@ public:
 	void UnsetUnit(unsigned int unit) const;
 	void bind() const;
 	void unbind() const;
+	void InitAsDepth(unsigned int width, unsigned int height);
 	static std::shared_ptr<Texture> Get(unsigned char r, unsigned char g, unsigned char b);
 	static std::shared_ptr<Texture> Get(const std::string& path, bool flip = false, bool sRGB = true, bool generateMipmap = true);
 	inline std::string GetPath() { return this->path; }
 	inline unsigned int GetId() const { return this->m_id; }
+	inline unsigned int GetWidth() const { return this->width; }
+	inline unsigned int GetHeight() const { return this->height; }
 
 	static void ClearCache() { m_TextureCache.clear(); }
 	static bool enableSRGB; //调试用

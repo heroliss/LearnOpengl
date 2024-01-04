@@ -92,10 +92,10 @@ public:
 	Renderer(int viewportWidth, int viewportHeight, int windowWidth, int windowHeight);
 	~Renderer();
 
-	int WindowWidth;
-	int WindowHeight;
-	int ViewportWidth;
-	int ViewportHeight;
+	unsigned int WindowWidth;
+	unsigned int WindowHeight;
+	unsigned int ViewportWidth;
+	unsigned int ViewportHeight;
 	float GetViewportAspect() { return (float)ViewportWidth / ViewportHeight; }
 	unsigned int multiSample = 16; //用于自定义的多重采样framebuffer
 
@@ -106,6 +106,9 @@ public:
 	mutable int clearCount = 0;
 	int postProcessCount = 0;
 	int stepCountLimit = 0;
+
+	bool usingDebugShowLayer = false;
+	int debugShowLayer = 0;
 
 	//-------------------UniformBuffer----------------------
 	std::shared_ptr<UniformBuffer> matricesUniformBuffer;
@@ -251,7 +254,6 @@ public:
 
 	std::shared_ptr<Light> AddLight() {
 		auto light = std::make_shared<Light>();
-		light->shadowTexture = std::make_shared<Texture>();
 		lights.push_back(light);
 		int lightsNum = lights.size();
 		lightsUniformBuffer->SetData(&lightsNum, 4, 0);
@@ -288,15 +290,16 @@ public:
 
 	//渲染阴影贴图(返回值表示是否渲染到默认帧缓冲)
 	bool DrawShadowMap() {
-		//修改视口大小为阴影帧缓冲设置的大小
-		ApplyViewportSize(depthFrameBuffer->width, depthFrameBuffer->height, false, false);
-
+		usingDebugShowLayer = false;
 		bool drawInDefaultFrameBuffer = false;
 		if (lights.size() > 0)
 		{
 			for (int i = 0; i < lights.size(); i++)
 			{
 				auto& light = lights[i];
+
+				unsigned int width = light->shadowTextureSize.x;
+				unsigned int height = light->shadowTextureSize.y;
 
 				//跳过无亮度或关闭了阴影投射的灯光
 				if (light->type == LightType::NONE_LIGHT || light->castShadow == false || light->brightness <= 0 || light->color == glm::vec3(0))
@@ -305,50 +308,103 @@ public:
 				}
 
 				//选择渲染位置：如果超过step步数，则渲染到默认帧缓冲，显示出来
-				if (stepCount + combineDrawList.size() + 1 >= stepCountLimit) {
+				if (stepCount + combineDrawList.size() + 1 >= stepCountLimit)
+				{
+					//为点光源设置要显示的阴影图的方向
+					if (stepCount + 1 < stepCountLimit && light->type == LightType::POINT_LIGHT)
+					{
+						depthOnlyMaterial->cubemapDebugShowLayer = debugShowLayer;
+						usingDebugShowLayer = true;
+					}
 					//让视口大小适应窗口尺寸，以使阴影图可以完整显示出来
-					float ratio = (float)depthFrameBuffer->width / depthFrameBuffer->height;
+					float ratio = (float)width / height;
 					float ratioWindow = (float)WindowWidth / WindowHeight;
-					int width, height;
 					if (ratio < ratioWindow) {
-						height = std::min(depthFrameBuffer->height, WindowHeight);
+						height = glm::min(height, WindowHeight);
 						width = ratio * height;
 					}
 					else {
-						width = std::min(depthFrameBuffer->width, WindowWidth);
+						width = glm::min(width, WindowWidth);
 						height = width / ratio;
 					}
-					ApplyViewportSize(width, height, false, false);		
+					ApplyViewportSize(width, height, false, false);
 					drawInDefaultFrameBuffer = true;
 					SwitchDefaultFrameBuffer(); //内含clear，clear中也有一步step
+
 				}
 				else //否则渲染到阴影帧缓冲
 				{
-					std::shared_ptr<Texture> texture = light->shadowTexture;
-					depthFrameBuffer->SetDepthTextureAndBind(texture); //用灯光中的阴影纹理设置到depthFrameBuffer并绑定
+					//修改视口大小为阴影帧缓冲设置的大小
+					ApplyViewportSize(width, height, false, false);
+
+					//平行光和聚光灯，用灯光中的阴影纹理设置到depthFrameBuffer并绑定
+					if (light->type == LightType::PARALLEL_LIGHT || light->type == LightType::SPOT_LIGHT)
+					{
+						if (light->shadowTexture == nullptr) //初始化阴影贴图
+						{
+							light->shadowTexture = std::make_shared<Texture>();
+							light->shadowCubemap = nullptr;
+						}
+						std::shared_ptr<Texture> texture = light->shadowTexture;
+						if (texture->GetWidth() != width || texture->GetHeight() != height) //设置分辨率
+						{
+							texture->InitAsDepth(width, height);
+						}
+						texture->SetUnit(10 + i);//设置阴影纹理的纹理单元，这里规定从第10个纹理开始算作阴影深度纹理（设置纹理单元必须在设置纹理环绕和缩放方式后才能使用，InitAsDepth中设置了这些）
+						depthFrameBuffer->SetDepthTextureAndBind(texture); //绑定到阴影帧缓冲
+					}
+					//点光源，用灯光中的立方体阴影纹理设置到depthFrameBuffer并绑定
+					else if (light->type == LightType::POINT_LIGHT)
+					{
+						if (light->shadowCubemap == nullptr) //初始化阴影立方体贴图
+						{
+							light->shadowCubemap = std::make_shared<Cubemap>();
+							light->shadowTexture = nullptr;
+						}
+						std::shared_ptr<Cubemap> cubemap = light->shadowCubemap;
+						if (cubemap->GetWidth() != width || cubemap->GetHeight() != height) //设置分辨率
+						{
+							cubemap->InitAsDepth(width, height);
+						}
+						cubemap->SetUnit(20 + i);//设置阴影纹理的纹理单元，这里规定从第20个纹理开始算作阴影深度纹理（设置纹理单元必须在设置纹理环绕和缩放方式后才能使用，InitAsDepth中设置了这些）
+						depthFrameBuffer->SetDepthCubemapAndBind(cubemap); //绑定到阴影帧缓冲
+					}
 					Clear();
-					texture->SetUnit(10 + i);//设置阴影纹理的纹理单元，这里规定从第十个纹理开始算作阴影深度纹理（设置纹理单元必须在设置纹理环绕和缩放方式后才能使用，SetDepthTextureAndBind中设置了这些）
 				}
 
-				//计算光照空间的视图矩阵
-				glm::mat4 lightView = glm::lookAt(light->pos, light->pos + light->direction, glm::vec3(0, 1, 0));
-				//计算光照空间的透视矩阵，并和视图矩阵合并为空间矩阵
-				glm::mat4 lightSpaceMatrix = glm::mat4(1);
 				if (light->type == LightType::PARALLEL_LIGHT) //计算平行光的空间矩阵
 				{
+					glm::mat4 lightView = glm::lookAt(light->pos, light->pos + light->direction, glm::vec3(0, 1, 0));
 					glm::mat4 lightProjection = glm::ortho(light->shadowOrthoRect.x, light->shadowOrthoRect.y, light->shadowOrthoRect.z, light->shadowOrthoRect.w, light->shadowNearAndFar.x, light->shadowNearAndFar.y);
-					lightSpaceMatrix = lightProjection * lightView;
+					depthOnlyMaterial->lightSpaceMatrix[0] = light->lightSpaceMatrix = lightProjection * lightView;
+					depthOnlyMaterial->useCubemap = false;
 				}
 				else if (light->type == LightType::SPOT_LIGHT) //计算聚光灯的空间矩阵
 				{
+					glm::mat4 lightView = glm::lookAt(light->pos, light->pos + light->direction, glm::vec3(0, 1, 0));
 					glm::mat4 lightProjection = glm::perspective(glm::radians(light->cutoffAngle.y * 2), 1.0f, light->shadowNearAndFar.x, light->shadowNearAndFar.y);
-					lightSpaceMatrix = lightProjection * lightView;
+					depthOnlyMaterial->lightSpaceMatrix[0] = light->lightSpaceMatrix = lightProjection * lightView;
+					depthOnlyMaterial->useCubemap = false;
+				}
+				else if (light->type == LightType::POINT_LIGHT) //计算点光源的空间矩阵
+				{
+					const glm::mat4 lightView[6] = {
+						glm::lookAt(light->pos, light->pos + glm::vec3(1, 0, 0), glm::vec3(0, -1, 0)),
+						glm::lookAt(light->pos, light->pos + glm::vec3(-1, 0, 0), glm::vec3(0, -1, 0)),
+						glm::lookAt(light->pos, light->pos + glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)),
+						glm::lookAt(light->pos, light->pos + glm::vec3(0, -1, 0), glm::vec3(0, 0, -1)),
+						glm::lookAt(light->pos, light->pos + glm::vec3(0, 0, 1), glm::vec3(0, -1, 0)),
+						glm::lookAt(light->pos, light->pos + glm::vec3(0, 0, -1), glm::vec3(0, -1, 0)),
+					};
+					glm::mat4 lightProjection = glm::perspective(glm::radians(90.0f), 1.0f, light->shadowNearAndFar.x, light->shadowNearAndFar.y);
+					for (int j = 0; j < 6; j++)
+					{
+						depthOnlyMaterial->lightSpaceMatrix[j] = lightProjection * lightView[j];
+					}
+					depthOnlyMaterial->useCubemap = true;
+					depthOnlyMaterial->lightPos = light->pos;
 				}
 
-				//光照空间矩阵填充到光照信息中
-				light->lightSpaceMatrix = lightSpaceMatrix;
-				//光照空间矩阵填充到用于渲染阴影图的shader中
-				depthOnlyMaterial->lightSpaceMatrix = lightSpaceMatrix;
 				depthOnlyMaterial->linearizeDepth = light->type != LightType::PARALLEL_LIGHT; //仅用于展示深度图，仅平行光时不启用线性化深度
 				depthOnlyMaterial->nearAndFar = light->shadowNearAndFar; //仅用于展示深度图
 				depthOnlyMaterial->showDepthRange = light->shadowShowDepthRange; //仅用于展示深度图

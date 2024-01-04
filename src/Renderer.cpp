@@ -200,6 +200,9 @@ bool Renderer::Draw(const VertexArray& va, const Material& material, glm::mat4 m
 	{
 		if (count == 0) verticesCount = ib->GetCount();
 		ib->Bind();
+		//if (instanceCount == 1) {
+		//	GLCALL(glDrawElements(mode, verticesCount, GL_UNSIGNED_INT, nullptr));
+		//}
 		GLCALL(glDrawElementsInstanced(mode, verticesCount, GL_UNSIGNED_INT, nullptr, instanceCount));
 		ib->Unbind();
 	}
