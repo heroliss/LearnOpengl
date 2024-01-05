@@ -255,9 +255,10 @@ public:
 	std::shared_ptr<Light> AddLight() {
 		auto light = std::make_shared<Light>();
 		lights.push_back(light);
-		int lightsNum = lights.size();
-		lightsUniformBuffer->SetData(&lightsNum, 4, 0);
-		lightsUniformBuffer->SetData(light->GetData(), Light::GetSize(), 16 + (lightsNum - 1) * Light::GetSize());
+
+		//int lightsNum = lights.size();
+		//lightsUniformBuffer->SetData(&lightsNum, 4, 0);
+		//lightsUniformBuffer->SetData(light->GetData(), Light::GetSize(), 16 + (lightsNum - 1) * Light::GetSize());
 
 		//std::cout << offsetof(Light, type) << std::endl;
 		//std::cout << offsetof(Light, useBlinnPhong) << std::endl;
@@ -368,6 +369,10 @@ public:
 						}
 						cubemap->SetUnit(20 + i);//设置阴影纹理的纹理单元，这里规定从第20个纹理开始算作阴影深度纹理（设置纹理单元必须在设置纹理环绕和缩放方式后才能使用，InitAsDepth中设置了这些）
 						depthFrameBuffer->SetDepthCubemapAndBind(cubemap); //绑定到阴影帧缓冲
+					}
+					else {
+						light->shadowTexture = nullptr;
+						light->shadowCubemap = nullptr;
 					}
 					Clear();
 				}

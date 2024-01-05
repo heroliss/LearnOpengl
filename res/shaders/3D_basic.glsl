@@ -152,28 +152,30 @@ const vec3 sampleOffsetDirections[20] = vec3[]
 float ShadowCalculation_pointLight(int index, vec3 lightDir, vec3 normal)
 {
     Light light = u_lights[index];
+    float far_plane = light.shadowNearAndFar.y;
+    vec3 lightToFrag = v_FragPos - light.pos; 
+
     float bias = light.shadowBias;
     float d = dot(normal, lightDir);
     bias = clamp(1 / (light.shadowBiasChangeRate * d), 0, 1) * bias;
 
-    float shadow = 0.0;
-    vec3 lightToFrag = v_FragPos - u_lights[index].pos; 
     float currentDepth = length(lightToFrag);
-
-    if(currentDepth > light.shadowNearAndFar.y)
+    if(currentDepth > far_plane)
         return 0.0;
 
-    //float diskRadius = (light.shadowSampleDiskRadius + (length(u_viewPos - v_FragPos) / light.shadowNearAndFar.y));
+    //float diskRadius = (light.shadowSampleDiskRadius + (length(u_viewPos - v_FragPos) / far_plane));
     float diskRadius = light.shadowSampleDiskRadius;
 
+    float shadow = 0.0;
     for(int i = 0; i < 20; ++i)
     {
         float closestDepth = texture(u_shadowCubemaps[index], lightToFrag + sampleOffsetDirections[i] * diskRadius).r;
-        closestDepth *= light.shadowNearAndFar.y;   // Undo mapping [0;1]
+        closestDepth *= far_plane;   // Undo mapping [0;1]
         if(currentDepth - bias > closestDepth)
             shadow += 1.0;
     }
     shadow /= 20;
+
 
 //    //samples需要从外部设置得来
 //    float offset = 0.1;
@@ -184,7 +186,7 @@ float ShadowCalculation_pointLight(int index, vec3 lightDir, vec3 normal)
 //            for(float z = -offset; z < offset; z += offset / (samples * 0.5))
 //            {
 //                float closestDepth = texture(u_shadowCubemaps[index], lightToFrag + vec3(x, y, z) * diskRadius).r; 
-//                closestDepth *= light.shadowNearAndFar.y;   // Undo mapping [0;1]
+//                closestDepth *= far_plane;   // Undo mapping [0;1]
 //                if(currentDepth - bias > closestDepth)
 //                    shadow += 1.0;
 //            }

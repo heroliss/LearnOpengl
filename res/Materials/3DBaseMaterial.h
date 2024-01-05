@@ -62,21 +62,20 @@ public:
 		if (HeightTexture != nullptr) HeightTexture->SetUnit(3); else HeightTexture->UnsetUnit(3);
 
 		//阴影深度图
-		int lightSize = Application::GetInstance()->renderer->lights.size();
 		std::vector<int> samplers;
-		for (int i = 0; i < lightSize; i++)
+		for (int i = 0; i < MAX_LIGHT_COUNT; i++)
 		{
 			samplers.push_back(10 + i);
 		}
-		shader->SetUniform1iv("u_shadowMaps", lightSize, samplers.data());
+		shader->SetUniform1iv("u_shadowMaps", MAX_LIGHT_COUNT, samplers.data());
 
 		//阴影深度立方体图
 		samplers.clear();
-		for (int i = 0; i < lightSize; i++)
+		for (int i = 0; i < MAX_LIGHT_COUNT; i++)
 		{
 			samplers.push_back(20 + i);
 		}
-		shader->SetUniform1iv("u_shadowCubemaps", lightSize, samplers.data());
+		shader->SetUniform1iv("u_shadowCubemaps", MAX_LIGHT_COUNT, samplers.data());
 
 		//环境立方体贴图，用于反射和折射
 		shader->SetUniform1i("u_cubemap", 4);

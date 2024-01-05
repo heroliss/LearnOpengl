@@ -60,7 +60,7 @@ public:
 	bool showGizmo = true;
 	float gizmoSize = 5;
 
-	//阴影设置
+	//阴影设置	
 	glm::uvec2 shadowTextureSize = glm::uvec2(4096, 4096);
 	glm::vec4 shadowOrthoRect = glm::vec4(-500.0f, 500.0f, -500.0f, 500.0f); //用于平行光的正交矩阵
 	glm::vec2 shadowShowDepthRange = glm::vec2(1.0f, 1000.0f); //仅用于展示深度图
