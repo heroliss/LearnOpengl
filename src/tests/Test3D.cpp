@@ -118,10 +118,16 @@ namespace test {
 		{
 			//设置立方体的贴图
 			CommonMaterialSetting(mainMaterial);
-			mainMaterial->MainTexture = enableMainTexture ? Texture::Get("res/textures/brickwall.jpg") : Texture::Get(255, 255, 255);
-			mainMaterial->NormalTexture = enableNormalTexture ? Texture::Get("res/textures/brickwall_normal.jpg", false, false) : Texture::Get(128, 128, 255);
-			mainMaterial->SpecularTexture = enableSpecularTexture ? Texture::Get("res/textures/dog.jpg", false, false) : Texture::Get(255, 255, 255);
-			mainMaterial->HeightTexture = nullptr;
+			//mainMaterial->MainTexture = enableMainTexture ? Texture::Get("res/textures/brickwall.jpg") : Texture::Get(255, 255, 255);
+			//mainMaterial->NormalTexture = enableNormalTexture ? Texture::Get("res/textures/brickwall_normal.jpg", false, false) : Texture::Get(128, 128, 255); //法线贴图也需要生成mipmap
+			//mainMaterial->SpecularTexture = enableSpecularTexture ? Texture::Get("res/textures/dog.jpg", false, false) : Texture::Get(255, 255, 255);
+			//mainMaterial->HeightTexture = nullptr;	
+
+			mainMaterial->MainTexture = enableMainTexture ? Texture::Get("res/textures/toy_box_diffuse.png") : Texture::Get(255, 255, 255);
+			mainMaterial->NormalTexture = enableNormalTexture ? Texture::Get("res/textures/toy_box_normal.png", false, false) : Texture::Get(128, 128, 255);
+			mainMaterial->SpecularTexture = enableSpecularTexture ? Texture::Get("res/textures/toy_box_disp.png", false, false) : Texture::Get(255, 255, 255);
+			mainMaterial->HeightTexture = Texture::Get("res/textures/toy_box_disp.png", false, false);
+
 			//设置模型矩阵
 			glm::mat4 modelMatrix = GetCurrentModelMatrix();//中心立方体的旋转由input控制
 			//添加中心立方体绘制
@@ -480,6 +486,14 @@ namespace test {
 			ImGui::Checkbox("Specular Texture", &enableSpecularTexture);
 			ImGui::SameLine();
 			ImGui::Checkbox("Normal Texture", &enableNormalTexture);
+
+			ImGui::Checkbox("Height Texture", &mainMaterial->EnableHeightTexture);
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(50);
+			ImGui::DragFloat("Scale", &mainMaterial->HeightTextureScale, 0.001f);
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(120);
+			ImGui::DragInt2("Layers Range", &mainMaterial->HeightTextureMinAndMaxLayerNum.x, 1, 1, 9999, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
 
 			//物体颜色
 			ImGui::SetNextItemWidth(200);

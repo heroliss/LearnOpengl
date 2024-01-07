@@ -42,7 +42,7 @@ layout(binding = 0, std140) uniform Matrices
 
 ##shader vertex
 uniform mat4 u_Model;
-//uniform vec3 u_viewPos;
+uniform vec3 u_viewPos;
 
 //下面in的变量顺序不能随便改变，和顶点数据结构相关
 in vec3 position;
@@ -57,6 +57,10 @@ out mat3 v_TBN;
 out vec3 v_FragPos; //世界空间的片元位置
 out vec4 v_FragPosLightSpaces[MAX_LIGHT_COUNT]; //光照空间的片元位置
 out float v_LightsEnable[MAX_LIGHT_COUNT];
+
+//预计算切线空间
+out vec3 v_TangentViewPos;
+out vec3 v_TangentFragPos;
 
 void main()
 {
@@ -80,7 +84,11 @@ void main()
     //    vec3 B = cross(T, N);
 
     v_TBN = mat3(T, B, N); //输出切线空间转世界空间的矩阵
-    //mat3 inversedTBN = transpose(v_TBN); //世界空间转切线空间的矩阵
+
+    //预计算切线空间
+    mat3 inversedTBN = transpose(v_TBN); //世界空间转切线空间的矩阵
+    v_TangentViewPos  = inversedTBN * u_viewPos;
+    v_TangentFragPos  = inversedTBN * v_FragPos;
 
     //计算光照空间的顶点位置
     for (int i = 0; i < u_lightNum; i++)
@@ -122,7 +130,12 @@ uniform float u_shininess; //高光反射范围（光泽度）
 uniform sampler2D u_mainTexture; //主贴图
 uniform sampler2D u_normalTexture; //法线贴图
 uniform sampler2D u_specularTexture; //高光贴图
-uniform sampler2D u_heightTexture; //高度贴图
+
+uniform sampler2D u_heightTexture; //视差贴图
+uniform float u_heightTextureScale;
+uniform ivec2 u_heightTextureMinAndMaxLayerNum;
+uniform bool u_enableHeightTexture;
+
 uniform samplerCube u_cubemap; //环境立方体贴图
 //折射
 uniform bool u_enableRefract;//开启折射（目前仅支持折射天空盒，此时透明度恒为1）
@@ -139,6 +152,10 @@ in mat3 v_TBN;
 in vec3 v_FragPos; //世界空间的片元位置
 in vec4 v_FragPosLightSpaces[MAX_LIGHT_COUNT]; //光照空间的片元位置
 in float v_LightsEnable[MAX_LIGHT_COUNT];
+
+//预计算切线空间
+in vec3 v_TangentViewPos;
+in vec3 v_TangentFragPos;
 
 const vec3 sampleOffsetDirections[20] = vec3[]
 (
@@ -240,16 +257,71 @@ float ShadowCalculation(int index, vec3 lightDir, vec3 normal)
     return shadow;
 };
 
+vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir)
+{ 
+    // number of depth layers
+    const float minLayers = u_heightTextureMinAndMaxLayerNum.x;
+    const float maxLayers = u_heightTextureMinAndMaxLayerNum.y;
+    float numLayers = mix(maxLayers, minLayers, abs(dot(vec3(0.0, 0.0, 1.0), viewDir)));  
+    // calculate the size of each layer
+    float layerDepth = 1.0 / numLayers;
+    // depth of current layer
+    float currentLayerDepth = 0.0;
+    // the amount to shift the texture coordinates per layer (from vector P)
+    vec2 P = viewDir.xy / viewDir.z * u_heightTextureScale; 
+    vec2 deltaTexCoords = P / numLayers;
+  
+    // get initial values
+    vec2  currentTexCoords     = texCoords;
+    float currentDepthMapValue = texture(u_heightTexture, currentTexCoords).r;
+      
+    while(currentLayerDepth < currentDepthMapValue)
+    {
+        // shift texture coordinates along direction of P
+        currentTexCoords -= deltaTexCoords;
+        // get depthmap value at current texture coordinates
+        currentDepthMapValue = texture(u_heightTexture, currentTexCoords).r;  
+        // get depth of next layer
+        currentLayerDepth += layerDepth;  
+    }
+    
+    // -- parallax occlusion mapping interpolation from here on
+    // get texture coordinates before collision (reverse operations)
+    vec2 prevTexCoords = currentTexCoords + deltaTexCoords;
+
+    // get depth after and before collision for linear interpolation
+    float afterDepth  = currentDepthMapValue - currentLayerDepth;
+    float beforeDepth = texture(u_heightTexture, prevTexCoords).r - currentLayerDepth + layerDepth;
+ 
+    // interpolation of texture coordinates
+    float weight = afterDepth / (afterDepth - beforeDepth);
+    vec2 finalTexCoords = prevTexCoords * weight + currentTexCoords * (1.0 - weight);
+
+    return finalTexCoords;
+}
+
 void main()
-{
+{    
+    //切线空间中片元指向摄像机的方向
+    vec3 tangentViewDir = normalize(v_TangentViewPos - v_TangentFragPos);
+    
+    //使用视差图获取改变后的纹理坐标
+    vec2 texCoords = v_TexCoord;
+    if(u_enableHeightTexture)
+    {
+        texCoords = ParallaxMapping(v_TexCoord, tangentViewDir);
+        if(texCoords.x > 1.0 || texCoords.y > 1.0 || texCoords.x < 0.0 || texCoords.y < 0.0)
+        discard;
+    }
+
     //纹理颜色
-    vec4 texColor = texture(u_mainTexture, v_TexCoord);
+    vec4 texColor = texture(u_mainTexture, texCoords);
     
     //基础颜色 (包括透明度)
     vec4 baseColor = texColor * u_objectColor;
     
     //从法线贴图范围[0,1]获取法线
-    vec3 normal = texture(u_normalTexture, v_TexCoord).rgb;
+    vec3 normal = texture(u_normalTexture, texCoords).rgb;
     normal = normalize(normal * 2.0 - 1.0); //将法线向量转换为范围[-1,1]
     normal = normalize(v_TBN * normal); //从切线空间转到世界空间
 
@@ -257,7 +329,7 @@ void main()
     vec3 viewDir = normalize(u_viewPos - v_FragPos);
 
     //镜面贴图（粗糙度）
-    vec3 specularTexColor = vec3(texture(u_specularTexture, v_TexCoord));
+    vec3 specularTexColor = vec3(texture(u_specularTexture, texCoords));
 
     //反射光
     vec3 viewReflectDir = reflect(-viewDir, normal); //世界空间中的视线反射方向

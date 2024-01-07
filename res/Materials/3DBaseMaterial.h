@@ -21,7 +21,12 @@ public:
 	std::shared_ptr<Texture> MainTexture = Texture::Get(255, 255, 255);
 	std::shared_ptr<Texture> NormalTexture = Texture::Get(128, 128, 255);
 	std::shared_ptr<Texture> SpecularTexture = Texture::Get(255, 255, 255);
-	std::shared_ptr<Texture> HeightTexture = Texture::Get(255, 255, 255);
+
+	std::shared_ptr<Texture> HeightTexture = Texture::Get(0, 0, 0);
+	float HeightTextureScale = 0.1f;
+	glm::ivec2 HeightTextureMinAndMaxLayerNum = glm::ivec2(4, 32);
+	bool EnableHeightTexture = true;
+
 	glm::vec3& viewPos = Application::GetInstance()->renderer->camera.position;
 
 	glm::vec3 SpecularColor = glm::vec3(0.5f, 0.5f, 0.5f); //高光反射颜色和强度
@@ -60,6 +65,10 @@ public:
 		if (SpecularTexture != nullptr) SpecularTexture->SetUnit(2); else SpecularTexture->UnsetUnit(2);
 		shader->SetUniform1i("u_heightTexture", 3);
 		if (HeightTexture != nullptr) HeightTexture->SetUnit(3); else HeightTexture->UnsetUnit(3);
+		shader->SetUniform1f("u_heightTextureScale", HeightTextureScale);
+		shader->SetUniform2i("u_heightTextureMinAndMaxLayerNum", HeightTextureMinAndMaxLayerNum.x, HeightTextureMinAndMaxLayerNum.y);
+		shader->SetUniform1i("u_enableHeightTexture", EnableHeightTexture);
+		
 
 		//阴影深度图
 		std::vector<int> samplers;
@@ -106,7 +115,7 @@ public:
 			//Ambient = glm::vec3(color.r, color.g, color.b);
 		}
 		else {
-			std::cout << "警告：材质提供了环境光贴图，但该shader没有实现环境光贴图的处理!" << std::endl;
+			//std::cout << "警告：材质提供了环境光贴图，但该shader没有实现环境光贴图的处理!" << std::endl;
 		}
 		//漫反射
 		if (useDiffuseTexture == false || mat->GetTextureCount(aiTextureType_DIFFUSE) == 0)
@@ -151,7 +160,16 @@ public:
 			//std::cout << std::format("aiMaterial({}): Apply normal texture: {}\n", mat->GetName().C_Str(), NormalTexture->GetPath());
 		}
 
-		//高度图 //TODO
+		//高度图
+		if (mat->GetTextureCount(aiTextureType_DISPLACEMENT) == 0)
+		{
+			HeightTexture = Texture::Get(0, 0, 0);
+		}
+		else {
+			mat->GetTexture(aiTextureType_DISPLACEMENT, 0, &texturePath);
+			HeightTexture = Texture::Get(directory + texturePath.C_Str(), false, false);
+			std::cout << std::format("aiMaterial({}): Apply height texture: {}\n", mat->GetName().C_Str(), HeightTexture->GetPath());
+		}
 	}
 };
 
