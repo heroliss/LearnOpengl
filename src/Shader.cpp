@@ -8,7 +8,7 @@
 Shader::Shader(const std::string& filePath)
 	: m_FilePath(filePath), m_RendererID(0)
 {
-	ShaderProgramSources source = ParseShader(filePath);
+	this->sources = std::make_shared<ShaderProgramSources>(ParseShader(filePath));
 
 	//std::cout << "------------ Useless ------------" << std::endl;
 	//std::cout << source.Useless << std::endl;
@@ -21,7 +21,7 @@ Shader::Shader(const std::string& filePath)
 	//std::cout << "----------- Geometry -----------" << std::endl;
 	//std::cout << source.GeometrySource << std::endl;
 
-	m_RendererID = CreateShader(source);
+	CreateShader();
 }
 
 Shader::~Shader()
@@ -164,8 +164,15 @@ unsigned int Shader::CompileShader(unsigned int type, const std::string& source)
 	return id;
 }
 
-unsigned int Shader::CreateShader(ShaderProgramSources& sources)
+/// <summary>
+/// 修改shader后调用该方法重新编译生成program
+/// </summary>
+unsigned int Shader::CreateShader()
 {
+	m_RendererID = 0;
+	GLCALL(glDeleteProgram(m_RendererID));
+
+	ShaderProgramSources& sources = *this->sources;
 	if (sources.Useless.empty() == false) {
 		std::cout << "Warning: Useless code found in shader: " << m_FilePath << std::endl << sources.Useless;
 	}
@@ -203,8 +210,9 @@ unsigned int Shader::CreateShader(ShaderProgramSources& sources)
 			std::cout << message << std::endl;
 		}
 		GLCALL(glDeleteProgram(program));
-		return 0;
+		m_RendererID = 0;
 	}
 
-	return program;
+	m_RendererID = program;
+	return m_RendererID;
 }

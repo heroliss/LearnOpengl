@@ -488,12 +488,31 @@ namespace test {
 			ImGui::Checkbox("Normal Texture", &enableNormalTexture);
 
 			ImGui::Checkbox("Height Texture", &mainMaterial->EnableHeightTexture);
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(50);
-			ImGui::DragFloat("Scale", &mainMaterial->HeightTextureScale, 0.001f);
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(120);
-			ImGui::DragInt2("Layers Range", &mainMaterial->HeightTextureMinAndMaxLayerNum.x, 1, 1, 9999, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
+			if (mainMaterial->EnableHeightTexture)
+			{
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(50);
+				ImGui::Checkbox("Offset Limit", &mainMaterial->ParallaxOffsetLimit);	
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(50);
+				ImGui::Checkbox("Shadow##HeightTextureShadow", &mainMaterial->EnableHeightTextureShadow);
+
+				ImGui::SetNextItemWidth(50);
+				ImGui::DragFloat("Scale", &mainMaterial->HeightTextureScale, 0.001f);
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(120);
+				ImGui::DragInt2("Layers Range", &mainMaterial->ParallaxMinAndMaxLayerNum.x, 1, 1, 999, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
+
+				ImGui::Checkbox("Enable Relief Parallax", &mainMaterial->EnableReliefParallax);
+				if (mainMaterial->EnableReliefParallax)
+				{
+					ImGui::SameLine();
+					ImGui::SetNextItemWidth(50);
+					ImGui::DragInt("Half Search Num", (int*)&mainMaterial->ReliefParallaxHalfSearchNum, 1, 1, 99, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
+				}
+
+				ImGui::Checkbox("Enable Parallax Occlusion", &mainMaterial->EnableParallaxOcclusion);
+			}
 
 			//物体颜色
 			ImGui::SetNextItemWidth(200);

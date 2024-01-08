@@ -61,6 +61,7 @@ out float v_LightsEnable[MAX_LIGHT_COUNT];
 //预计算切线空间
 out vec3 v_TangentViewPos;
 out vec3 v_TangentFragPos;
+out vec3 v_TangentLightDir[MAX_LIGHT_COUNT];
 
 void main()
 {
@@ -110,6 +111,7 @@ void main()
             lightDir = normalize(light.pos - v_FragPos);
         }
         v_LightsEnable[i] = dot(N, lightDir);
+        v_TangentLightDir[i] = inversedTBN * lightDir; //输出切线空间的光照方向
     }
 }
 
@@ -131,10 +133,17 @@ uniform sampler2D u_mainTexture; //主贴图
 uniform sampler2D u_normalTexture; //法线贴图
 uniform sampler2D u_specularTexture; //高光贴图
 
-uniform sampler2D u_heightTexture; //视差贴图
+//视差贴图
+uniform sampler2D u_heightTexture; 
 uniform float u_heightTextureScale;
 uniform ivec2 u_heightTextureMinAndMaxLayerNum;
 uniform bool u_enableHeightTexture;
+
+uniform bool u_ParallaxOffsetLimit;
+uniform bool u_ReliefParallax;
+uniform bool u_ParallaxOcclusion;
+uniform int u_HalfSearchNum;
+uniform bool u_enableHeightTextureShadow;
 
 uniform samplerCube u_cubemap; //环境立方体贴图
 //折射
@@ -156,6 +165,7 @@ in float v_LightsEnable[MAX_LIGHT_COUNT];
 //预计算切线空间
 in vec3 v_TangentViewPos;
 in vec3 v_TangentFragPos;
+in vec3 v_TangentLightDir[MAX_LIGHT_COUNT];
 
 const vec3 sampleOffsetDirections[20] = vec3[]
 (
@@ -257,47 +267,126 @@ float ShadowCalculation(int index, vec3 lightDir, vec3 normal)
     return shadow;
 };
 
-vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir)
-{ 
-    // number of depth layers
-    const float minLayers = u_heightTextureMinAndMaxLayerNum.x;
-    const float maxLayers = u_heightTextureMinAndMaxLayerNum.y;
-    float numLayers = mix(maxLayers, minLayers, abs(dot(vec3(0.0, 0.0, 1.0), viewDir)));  
-    // calculate the size of each layer
-    float layerDepth = 1.0 / numLayers;
-    // depth of current layer
-    float currentLayerDepth = 0.0;
-    // the amount to shift the texture coordinates per layer (from vector P)
-    vec2 P = viewDir.xy / viewDir.z * u_heightTextureScale; 
-    vec2 deltaTexCoords = P / numLayers;
-  
-    // get initial values
-    vec2  currentTexCoords     = texCoords;
-    float currentDepthMapValue = texture(u_heightTexture, currentTexCoords).r;
-      
+vec2 ParallaxMapping(vec2 uv, vec3 viewDir, out float finalHeight)
+{
+    //陡峭视差映射
+    // 优化：根据视角来决定分层数(因为视线方向越垂直于平面，纹理偏移量较少，不需要过多的层数来维持精度)
+    float layerNum = mix(u_heightTextureMinAndMaxLayerNum.y, u_heightTextureMinAndMaxLayerNum.x, abs(dot(vec3(0,0,1), viewDir)));//层数
+    float layerDepth = 1 / layerNum;//层深					
+    vec2 deltaTexCoords = vec2(0);//层深对应偏移量
+    if (u_ParallaxOffsetLimit) //建议使用偏移量限制，否则视线方向越平行于平面偏移量过大，分层明显
+    {
+        deltaTexCoords = viewDir.xy / layerNum * u_heightTextureScale;
+    }
+    else
+    {
+        deltaTexCoords = viewDir.xy / viewDir.z / layerNum * u_heightTextureScale;
+    }
+    vec2 currentTexCoords = uv;//当前层纹理坐标
+    float currentDepthMapValue = texture(u_heightTexture, currentTexCoords).r;//当前纹理坐标采样结果
+    float currentLayerDepth = 0;//当前层深度
+    // unable to unroll loop, loop does not appear to terminate in a timely manner
+    // 上面这个错误是在循环内使用tex2D导致的，需要加上unroll来限制循环次数或者改用tex2Dlod
+    // [unroll(100)]
     while(currentLayerDepth < currentDepthMapValue)
     {
-        // shift texture coordinates along direction of P
         currentTexCoords -= deltaTexCoords;
-        // get depthmap value at current texture coordinates
-        currentDepthMapValue = texture(u_heightTexture, currentTexCoords).r;  
-        // get depth of next layer
-        currentLayerDepth += layerDepth;  
+        // currentDepthMapValue = tex2D(_HeightMap, currentTexCoords).r;
+        currentDepthMapValue = texture(u_heightTexture, currentTexCoords).r;
+        currentLayerDepth += layerDepth;
     }
-    
-    // -- parallax occlusion mapping interpolation from here on
-    // get texture coordinates before collision (reverse operations)
-    vec2 prevTexCoords = currentTexCoords + deltaTexCoords;
+    finalHeight = currentLayerDepth; //输出当前深度
+    vec2 finalTexCoords = currentTexCoords;
 
-    // get depth after and before collision for linear interpolation
-    float afterDepth  = currentDepthMapValue - currentLayerDepth;
-    float beforeDepth = texture(u_heightTexture, prevTexCoords).r - currentLayerDepth + layerDepth;
- 
-    // interpolation of texture coordinates
-    float weight = afterDepth / (afterDepth - beforeDepth);
-    vec2 finalTexCoords = prevTexCoords * weight + currentTexCoords * (1.0 - weight);
+    if (u_ReliefParallax)//浮雕视差映射（Relief Parallax Mapping）
+    {
+        // 二分查找
+        vec2 halfDeltaTexCoords = deltaTexCoords / 2;
+        float halfLayerDepth = layerDepth / 2;
+        currentTexCoords += halfDeltaTexCoords;
+        currentLayerDepth += halfLayerDepth;
+
+        for(int i = 0; i < u_HalfSearchNum; i++)
+        {
+	        halfDeltaTexCoords = halfDeltaTexCoords / 2;
+	        halfLayerDepth = halfLayerDepth / 2;
+	        currentDepthMapValue = texture(u_heightTexture, currentTexCoords).r;
+	        if(currentDepthMapValue > currentLayerDepth)
+	        {
+		        currentTexCoords -= halfDeltaTexCoords;
+		        currentLayerDepth += halfLayerDepth;
+	        }
+	        else
+	        {
+		        currentTexCoords += halfDeltaTexCoords;
+		        currentLayerDepth -= halfLayerDepth;
+	        }
+        }
+        finalTexCoords = currentTexCoords;
+    }
+
+    if (u_ParallaxOcclusion)  //视差遮挡映射（Parallax Occlusion Mapping）
+    {
+        // get texture coordinates before collision (reverse operations)
+        vec2 prevTexCoords = currentTexCoords + deltaTexCoords;
+        // get depth after and before collision for linear interpolation
+        float afterDepth  = currentDepthMapValue - currentLayerDepth;
+        float beforeDepth = texture(u_heightTexture, prevTexCoords).r - currentLayerDepth + layerDepth;
+        // interpolation of texture coordinates
+        float weight = afterDepth / (afterDepth - beforeDepth);
+        finalTexCoords = prevTexCoords * weight + currentTexCoords * (1.0 - weight);
+    }
 
     return finalTexCoords;
+}
+
+// 输入的initialUV和initialHeight均为视差遮挡映射的结果
+float ParallaxShadow(vec2 initialUV, vec3 lightDir, float initialHeight)
+{
+    float shadowMultiplier = 0;
+    if (dot(vec3(0, 0, 1), lightDir) > 0) //只算正对阳光的面
+    {
+        // 根据光线方向决定层数（道理和视线方向一样）
+	float numLayers = mix(u_heightTextureMinAndMaxLayerNum.y, u_heightTextureMinAndMaxLayerNum.x, abs(dot(vec3(0, 0, 1), lightDir)));
+	float layerHeight = initialHeight / numLayers; //从当前点开始计算层深（没必要以整个范围）
+    vec2 texStep = vec2(0); //层深对应偏移量
+    if (u_ParallaxOffsetLimit)
+    {
+	    texStep = u_heightTextureScale * lightDir.xy / numLayers;
+    }
+    else
+    {
+        texStep = u_heightTextureScale * lightDir.xy / lightDir.z / numLayers;
+    }
+    // 继续向上找是否有相交点
+	float currentLayerHeight = initialHeight - layerHeight; //当前相交点前的最后层深
+	vec2 currentTexCoords = initialUV + texStep;
+	float heightFromTexture = texture(u_heightTexture, currentTexCoords).r;
+	int stepIndex = 1; //向上查找次数
+        float numSamplesUnderSurface = 0; //统计被遮挡的层数
+	while(currentLayerHeight > 0) //直到达到表面
+	{
+	    if(heightFromTexture < currentLayerHeight) //采样结果小于当前层深则有交点
+            {
+		numSamplesUnderSurface += 1;              
+                float atten = (1 - stepIndex / numLayers); //阴影的衰减值：越接近顶部（或者说浅处），阴影强度越小
+                // 以当前层深到高度贴图采样值的距离作为阴影的强度并乘以阴影的衰减值
+		float newShadowMultiplier = (currentLayerHeight - heightFromTexture) * atten;
+		shadowMultiplier = max(shadowMultiplier, newShadowMultiplier);
+	    }
+
+	    stepIndex += 1;
+	    currentLayerHeight -= layerHeight;
+	    currentTexCoords += texStep;
+	    heightFromTexture = texture(u_heightTexture, currentTexCoords).r;
+	}
+
+	if(numSamplesUnderSurface < 1) //没有交点，则不在阴影区域
+	    shadowMultiplier = 1;
+	else 
+	    shadowMultiplier = 1 - shadowMultiplier;
+    }
+    return shadowMultiplier;
 }
 
 void main()
@@ -307,9 +396,10 @@ void main()
     
     //使用视差图获取改变后的纹理坐标
     vec2 texCoords = v_TexCoord;
+    float parallaxHeight;
     if(u_enableHeightTexture)
     {
-        texCoords = ParallaxMapping(v_TexCoord, tangentViewDir);
+        texCoords = ParallaxMapping(v_TexCoord, tangentViewDir, parallaxHeight);
         if(texCoords.x > 1.0 || texCoords.y > 1.0 || texCoords.x < 0.0 || texCoords.y < 0.0)
         discard;
     }
@@ -416,7 +506,10 @@ void main()
         
         //阴影值
         float shadow = light.castShadow ? light.type == POINT_LIGHT ? ShadowCalculation_pointLight(i, lightDir, normal) : ShadowCalculation(i, lightDir, normal) : 0;
-
+        if(u_enableHeightTexture && u_enableHeightTextureShadow && light.castShadow)
+        {
+            shadow = clamp(shadow + 1 - ParallaxShadow(texCoords, v_TangentLightDir[i], parallaxHeight), 0, 1);
+        }
         //合并所有光照
         allLightsColor += (diffuse + specular) * intensity * (1.0 - shadow);
         allLightsColor *= baseColor.a; //透视会减少光照的反射

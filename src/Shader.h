@@ -2,7 +2,7 @@
 
 #include <string>
 #include <unordered_map>
-
+#include <memory>
 #include "glm/glm.hpp"
 
 struct ShaderProgramSources
@@ -42,10 +42,12 @@ public:
 
 	unsigned int GetId() { return m_RendererID; }
 
+	std::shared_ptr<ShaderProgramSources> sources;
+
 private:
 	int GetUniformLocation(const std::string& name) const;
 	ShaderProgramSources ParseShader(const std::string& filePath);
 	unsigned int CompileShader(unsigned int type, const std::string& source);
-	unsigned int CreateShader(ShaderProgramSources& sources);
+	unsigned int CreateShader();
 };
 

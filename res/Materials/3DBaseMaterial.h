@@ -23,9 +23,15 @@ public:
 	std::shared_ptr<Texture> SpecularTexture = Texture::Get(255, 255, 255);
 
 	std::shared_ptr<Texture> HeightTexture = Texture::Get(0, 0, 0);
-	float HeightTextureScale = 0.1f;
-	glm::ivec2 HeightTextureMinAndMaxLayerNum = glm::ivec2(4, 32);
 	bool EnableHeightTexture = true;
+	float HeightTextureScale = 0.1f;
+	glm::ivec2 ParallaxMinAndMaxLayerNum = glm::ivec2(4, 32);
+	//视差映射
+	bool ParallaxOffsetLimit = false;
+	bool EnableReliefParallax = false;
+	bool EnableParallaxOcclusion = true;
+	unsigned int ReliefParallaxHalfSearchNum = 5;
+	bool EnableHeightTextureShadow = true;
 
 	glm::vec3& viewPos = Application::GetInstance()->renderer->camera.position;
 
@@ -66,9 +72,15 @@ public:
 		shader->SetUniform1i("u_heightTexture", 3);
 		if (HeightTexture != nullptr) HeightTexture->SetUnit(3); else HeightTexture->UnsetUnit(3);
 		shader->SetUniform1f("u_heightTextureScale", HeightTextureScale);
-		shader->SetUniform2i("u_heightTextureMinAndMaxLayerNum", HeightTextureMinAndMaxLayerNum.x, HeightTextureMinAndMaxLayerNum.y);
+		shader->SetUniform2i("u_heightTextureMinAndMaxLayerNum", ParallaxMinAndMaxLayerNum.x, ParallaxMinAndMaxLayerNum.y);
 		shader->SetUniform1i("u_enableHeightTexture", EnableHeightTexture);
 		
+		//视差映射
+		shader->SetUniform1i("u_ParallaxOffsetLimit", ParallaxOffsetLimit);
+		shader->SetUniform1i("u_ReliefParallax", EnableReliefParallax);
+		shader->SetUniform1i("u_ParallaxOcclusion", EnableParallaxOcclusion);
+		shader->SetUniform1i("u_HalfSearchNum", ReliefParallaxHalfSearchNum);
+		shader->SetUniform1i("u_enableHeightTextureShadow", EnableHeightTextureShadow);
 
 		//阴影深度图
 		std::vector<int> samplers;
