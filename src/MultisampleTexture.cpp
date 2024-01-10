@@ -7,7 +7,8 @@ MultisampleTexture::MultisampleTexture(unsigned int multisample, unsigned int wi
 {
 	GLCALL(glGenTextures(1, &m_id));
 	Bind();
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, multisample, GL_RGB, width, height, GL_TRUE);
+	//glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, multisample, GL_RGB, width, height, GL_TRUE);
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, multisample, GL_RGB16F, width, height, GL_TRUE); //Ö§³ÖHDR
 	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 	Unbind();
 }

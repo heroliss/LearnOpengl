@@ -200,7 +200,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="res\Materials\DepthDisplayMaterial.h" />
-    <ClInclude Include="res\Materials\PostProcess\GammaCorrection.h" />
+    <ClInclude Include="res\Materials\PostProcess\ToneMapping.h" />
     <ClInclude Include="res\Materials\DepthOnlyMaterial.h" />
     <ClInclude Include="src\DepthFramebuffer.h" />
     <ClInclude Include="src\Event.h" />

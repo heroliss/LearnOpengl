@@ -18,7 +18,7 @@
 #include "../res/Materials/PostProcess/InverseColor.h"
 #include "../res/Materials/PostProcess/Grayscale.h"
 #include "../res/Materials/PostProcess/KernelEffect.h"
-#include "../res/Materials/PostProcess/GammaCorrection.h"
+#include "../res/Materials/PostProcess/ToneMapping.h"
 
 #include "Model.h"
 #include "Skybox.h"
@@ -81,7 +81,7 @@ namespace test {
 			std::make_shared<Grayscale>(),
 			std::make_shared<InverseColor>(),
 			std::make_shared<ResizeViewportMaterial>(),
-			std::make_shared<GammaCorrection>(),
+			std::make_shared<ToneMapping>(),
 		};
 
 		//比较笨的办法来让面板上的材质设置对所有物体生效(调试用：跟随主材质设置)

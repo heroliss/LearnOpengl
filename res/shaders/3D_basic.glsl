@@ -154,7 +154,8 @@ uniform float u_refractiveIndex; //折射率
 uniform sampler2D u_shadowMaps[MAX_LIGHT_COUNT]; //阴影深度纹理，与u_lights对应
 uniform samplerCube u_shadowCubemaps[MAX_LIGHT_COUNT]; //阴影立方体深度纹理，与u_lights对应
 
-out vec4 outColor;
+layout (location = 0) out vec4 outColor;
+layout (location = 1) out vec4 BrightColor;
 
 in vec2 v_TexCoord;
 in mat3 v_TBN;
@@ -516,4 +517,8 @@ void main()
     }
     //合并所有颜色
     outColor = vec4(baseColor.rgb * (allLightsColor + u_emission_inside + u_ambient + reflectColor + refractColor) + u_emission_outside, u_enableRefract ? 1 : baseColor.a); //当使用折射时透明度保持为1
+    
+    float brightness = dot(outColor.rgb, vec3(0.2126, 0.7152, 0.0722)); //转换为灰度得到亮度值
+    if(brightness > 1.0)
+        BrightColor = vec4(outColor.rgb, 1.0); //输出高亮图像用于泛光效果
 };

@@ -806,9 +806,10 @@ namespace test {
 		}
 
 		//后处理发生变化后，如果窗口多采样已开启，并且没有后处理过程，则需要关闭预先多采样，以防止预先多采样和窗口多采样采样数不一致导致的崩溃问题
-		if (postProcessDirty && app->WindowMsaaSamples > 0 && app->renderer->HasPostProcessingToDraw() == false)
-		{
-			app->renderer->SetMultiSample(0);
-		}
+		//if (postProcessDirty && app->WindowMsaaSamples > 0 && app->renderer->HasPostProcessingToDraw() == false)
+		//{
+		//	app->renderer->SetMultiSample(0);
+		//}
+		//以上改为了启用窗口多采样时自动禁用预先多采样
 	}
 }

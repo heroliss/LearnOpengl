@@ -10,14 +10,17 @@ public:
 	virtual std::string GetName() const = 0;
 	virtual void DrawImgui(int id) = 0;
 
-	std::shared_ptr<Texture> ScreenTexture;
+	std::vector<std::shared_ptr<Texture>> RenderTargets;
 	std::shared_ptr<Texture> ErrorTexture = Texture::Get("ErrorTexture");
 
 	void ApplyUniforms(glm::mat4 modelMatrix) const override
 	{
 		auto shader = GetShader();
-		shader->SetUniform1i("screenTexture", 0);
-		if (ScreenTexture) ScreenTexture->SetUnit(0); else ErrorTexture->SetUnit(0);
+		for (int i = 0; i < RenderTargets.size(); i++)
+		{
+			shader->SetUniform1i(std::format("u_screenTextures[{}]", i), i);
+			RenderTargets[i]->SetUnit(i);
+		}
 	}
 
 	virtual PostProcessingMaterial* CreateObject() = 0;

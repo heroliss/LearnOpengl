@@ -20,12 +20,12 @@ out vec4 FragColor;
 
 in vec2 TexCoords;
 
-uniform sampler2D screenTexture;
+uniform sampler2D u_screenTextures[1];
 uniform float GrayscalePercentage;
 
 void main()
 { 
-    FragColor = texture(screenTexture, TexCoords);
+    FragColor = texture(u_screenTextures[0], TexCoords);
     float average = 0.2126 * FragColor.r + 0.7152 * FragColor.g + 0.0722 * FragColor.b;
     average = GrayscalePercentage * average;
     float p = 1 - GrayscalePercentage;

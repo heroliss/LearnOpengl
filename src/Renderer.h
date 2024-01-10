@@ -154,8 +154,8 @@ public:
 			frameBuffer_va->AddBuffer(vb, layout);
 		}
 		//创建后处理FrameBuffer
-		frameBuffer1 = std::make_shared<Framebuffer>();
-		frameBuffer2 = std::make_shared<Framebuffer>();
+		frameBuffer1 = std::make_shared<Framebuffer>(2, 0);
+		frameBuffer2 = std::make_shared<Framebuffer>(2, 0);
 		//创建多重采样FrameBuffer（用于MSAA抗锯齿）
 		SetMultiSample(multiSample);
 		//创建深度FrameBuffer（用于阴影）
@@ -166,7 +166,7 @@ public:
 	void SetMultiSample(unsigned int multiSample)
 	{
 		this->multiSample = multiSample;
-		multiSampleFrameBuffer = multiSample == 0 ? nullptr : std::make_shared<Framebuffer>(multiSample);
+		multiSampleFrameBuffer = multiSample == 0 ? nullptr : std::make_shared<Framebuffer>(2 ,multiSample);
 	}
 
 	void BindCurrentFrameBuffer() {
@@ -203,7 +203,7 @@ public:
 
 			//获取当前帧缓冲的图像
 			auto material = postProcessingMaterials[i];
-			material->ScreenTexture = currentFrameBuffer->GetTexture();
+			material->RenderTargets = currentFrameBuffer->GetTextures();
 
 			stepCount--; //为合并一步抵消下面clear中的stepCount++
 			//若是最后一个后处理，或是最后两个渲染步骤，则渲染到屏幕

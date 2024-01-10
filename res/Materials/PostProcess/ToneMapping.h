@@ -6,27 +6,33 @@
 #include "imgui.h"
 #include "Application.h"
 
-class GammaCorrection : public PostProcessingMaterial
+class ToneMapping : public PostProcessingMaterial
 {
 public:
 	float gamma = 2.2f;
 	bool followSRGB = true;
-	std::string GetName() const override { return "Gamma Correction"; }
+	bool useACESToneMapping = true;
+	float adapted_lum = 1;
+	std::string GetName() const override { return "Tone Mapping"; }
 	std::string GetShaderFilePath() const override
 	{
-		return "res/shaders/PostProcess/GammaCorrection.glsl";
+		return "res/shaders/PostProcess/ToneMapping.glsl";
 	}
 	void ApplyUniforms(glm::mat4 modelMatrix) const override
 	{
 		PostProcessingMaterial::ApplyUniforms(modelMatrix);
 		Shader& shader = *GetShader();
 		shader.SetUniform1f("gamma", gamma);
+		shader.SetUniform1i("useACESToneMapping", useACESToneMapping);
+		shader.SetUniform1f("adapted_lum", adapted_lum);
 	}
 
 	void DrawImgui(int id) override
 	{
 		std::string idText = "##" + std::to_string(id);
-		ImGui::SameLine();
+
+		ImGui::SameLine(120);
+
 		ImGui::SetNextItemWidth(60);
 		ImGui::DragFloat(("gamma" + idText).c_str(), &gamma, 0.01);
 		ImGui::SameLine();
@@ -34,10 +40,17 @@ public:
 		if (followSRGB) {
 			gamma = Texture::enableSRGB ? 2.2f : 1.0f;
 		}
+
+		ImGui::SetCursorPosX(120);
+
+		ImGui::Checkbox("ACES ToneMapping", &useACESToneMapping);
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(60);
+		ImGui::DragFloat("adapted_lum", &adapted_lum, 0.001f, 0, 999);
 	}
 
-	GammaCorrection* CreateObject() override {
-		return new GammaCorrection();
+	ToneMapping* CreateObject() override {
+		return new ToneMapping();
 	}
 };
 

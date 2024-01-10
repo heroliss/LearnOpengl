@@ -152,8 +152,11 @@ start:
 				renderer->SwitchDefaultFrameBuffer(); //绑定并clear
 			}
 
+			//判断是否启用多重采样
+			bool useMultiSample = renderer->multiSample > 0 && (WindowMsaaSamples == 0 || hasPostProcessing);
+
 			//若需要多重采样，则渲染到多重采样帧缓冲（虽然最终选择了多重采样帧缓冲，但上面的确定当前帧缓冲和clear依然要执行）
-			if (renderer->multiSample > 0)
+			if (useMultiSample)
 			{ 
 				if (displayShadowMap == false)
 					renderer->BindMultiSampleFrameBuffer(); //绑定到多重采样帧缓冲并clear
@@ -168,7 +171,7 @@ start:
 			testMenu.OnRender();
 
 			//若多重采样，则渲染结果位块传送到当前帧缓冲（自定义帧缓冲或默认帧缓冲）
-			if (renderer->multiSample > 0 && displayShadowMap == false)
+			if (useMultiSample && displayShadowMap == false)
 			{
 				renderer->BlitMultiSampleFramebufferToCurrentFrameBuffer();
 			}

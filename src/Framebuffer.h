@@ -8,13 +8,13 @@ class Framebuffer
 private:
 	unsigned int m_RendererID;
 	unsigned int multisample;
-	std::shared_ptr<Texture> m_texture;
+	std::vector<std::shared_ptr<Texture>> m_textures;
 	Renderbuffer m_renderBuffer;
 	//Renderbuffer m_colorRenderBuffer;
-	std::shared_ptr<MultisampleTexture> m_multisampleTexture;
+	std::vector<std::shared_ptr<MultisampleTexture>> m_multisampleTextures;
 
 public:
-	Framebuffer(unsigned int multisample = 0);
+	Framebuffer(unsigned int mrtNum, unsigned int multisample);
 	~Framebuffer();
 
 	void Bind() const;
@@ -32,6 +32,6 @@ public:
 
 	inline unsigned int GetId() const { return m_RendererID; }
 	inline unsigned int GetMultiSample() const { return multisample; }
-	inline std::shared_ptr<Texture> GetTexture() { return m_texture; }
+	inline const std::vector<std::shared_ptr<Texture>>& GetTextures() const { return m_textures; }
 };
 

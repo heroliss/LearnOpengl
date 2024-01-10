@@ -20,7 +20,7 @@ struct Light
 public:
 	alignas(4)  LightType type = LightType::PARALLEL_LIGHT;
 	alignas(4)  int       useBlinnPhong = 1;
-	alignas(4)  float     brightness = 1;                                       //亮度，与颜色相乘
+	alignas(4)  float     brightness = 0.5f;                                    //亮度，与颜色相乘
 	alignas(4)  int       castShadow = 1;
 	alignas(4)  int       shadowPCFSize = 1;                                    //PCF(Percentage Closer Filtering) 采样尺寸的边长
 	alignas(4)  float     shadowBias;                                           //光照与法线接近垂直时的最大阴影深度偏移值（跟随shadowBiasSettingValue和shadowNearAndFar变化）

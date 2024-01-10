@@ -20,10 +20,10 @@ out vec4 FragColor;
 
 in vec2 TexCoords;
 
-uniform sampler2D screenTexture;
+uniform sampler2D u_screenTextures[1];
 
 void main()
 { 
-    vec4 color = texture(screenTexture, TexCoords);
+    vec4 color = texture(u_screenTextures[0], TexCoords);
     FragColor = vec4(vec3(1 - color), 1);
 }

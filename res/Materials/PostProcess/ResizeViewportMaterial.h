@@ -11,7 +11,7 @@ class ResizeViewportMaterial : public PostProcessingMaterial
 public:
 	bool followWindowSize = true;
 	mutable glm::ivec2 viewportSize;
-	std::string GetName() const override { return "Resize Viewport"; }
+	std::string GetName() const override { return "Resize"; }
 	std::string GetShaderFilePath() const override
 	{
 		return "res/shaders/PostProcess/DoNothing.glsl";

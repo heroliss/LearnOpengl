@@ -257,7 +257,7 @@
     <ClInclude Include="src\MultisampleTexture.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="res\Materials\PostProcess\GammaCorrection.h">
+    <ClInclude Include="res\Materials\PostProcess\ToneMapping.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\DepthFramebuffer.h">

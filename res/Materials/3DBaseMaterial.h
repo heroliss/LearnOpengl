@@ -74,7 +74,7 @@ public:
 		shader->SetUniform1f("u_heightTextureScale", HeightTextureScale);
 		shader->SetUniform2i("u_heightTextureMinAndMaxLayerNum", ParallaxMinAndMaxLayerNum.x, ParallaxMinAndMaxLayerNum.y);
 		shader->SetUniform1i("u_enableHeightTexture", EnableHeightTexture);
-		
+
 		//视差映射
 		shader->SetUniform1i("u_ParallaxOffsetLimit", ParallaxOffsetLimit);
 		shader->SetUniform1i("u_ReliefParallax", EnableReliefParallax);
@@ -83,25 +83,16 @@ public:
 		shader->SetUniform1i("u_enableHeightTextureShadow", EnableHeightTextureShadow);
 
 		//阴影深度图
-		std::vector<int> samplers;
 		for (int i = 0; i < MAX_LIGHT_COUNT; i++)
 		{
-			samplers.push_back(10 + i);
+			shader->SetUniform1i(std::format("u_shadowMaps[{}]", i), i + 10);
+			shader->SetUniform1i(std::format("u_shadowCubemaps[{}]", i), i + 20);
 		}
-		shader->SetUniform1iv("u_shadowMaps", MAX_LIGHT_COUNT, samplers.data());
-
-		//阴影深度立方体图
-		samplers.clear();
-		for (int i = 0; i < MAX_LIGHT_COUNT; i++)
-		{
-			samplers.push_back(20 + i);
-		}
-		shader->SetUniform1iv("u_shadowCubemaps", MAX_LIGHT_COUNT, samplers.data());
 
 		//环境立方体贴图，用于反射和折射
 		shader->SetUniform1i("u_cubemap", 4);
-		if (cubemap != nullptr) 
-			cubemap->SetUnit(4); 
+		if (cubemap != nullptr)
+			cubemap->SetUnit(4);
 		else
 			Cubemap::UnsetUnit(4);
 
