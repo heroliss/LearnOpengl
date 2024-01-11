@@ -136,7 +136,9 @@ uniform sampler2D u_specularTexture; //高光贴图
 //视差贴图
 uniform sampler2D u_heightTexture; 
 uniform float u_heightTextureScale;
+uniform float u_heightTextureShadowScale;
 uniform ivec2 u_heightTextureMinAndMaxLayerNum;
+uniform ivec2 u_parallaxShadowMinAndMaxLayerNum;
 uniform bool u_enableHeightTexture;
 
 uniform bool u_ParallaxOffsetLimit;
@@ -177,14 +179,14 @@ const vec3 sampleOffsetDirections[20] = vec3[]
    vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
 );
 
-float ShadowCalculation_pointLight(int index, vec3 lightDir, vec3 normal)
+float ShadowCalculation_pointLight(int index, vec3 tangentLightDir)
 {
     Light light = u_lights[index];
     float far_plane = light.shadowNearAndFar.y;
     vec3 lightToFrag = v_FragPos - light.pos; 
 
     float bias = light.shadowBias;
-    float d = dot(normal, lightDir);
+    float d = dot(tangentLightDir, vec3(0,0,1));
     bias = clamp(1 / (light.shadowBiasChangeRate * d), 0, 1) * bias;
 
     float currentDepth = length(lightToFrag);
@@ -225,7 +227,7 @@ float ShadowCalculation_pointLight(int index, vec3 lightDir, vec3 normal)
     return shadow;
 }
 
-float ShadowCalculation(int index, vec3 lightDir, vec3 normal)
+float ShadowCalculation(int index, vec3 tangentLightDir) //这里lightDir是
 {
     vec4 fragPosLightSpace = v_FragPosLightSpaces[index];
 
@@ -245,7 +247,7 @@ float ShadowCalculation(int index, vec3 lightDir, vec3 normal)
     //检查当前片段是否在阴影中
     Light light = u_lights[index];
     float bias = light.shadowBias;
-    float d = dot(normal, lightDir);
+    float d = dot(tangentLightDir, vec3(0,0,1));
     bias = clamp(1 / (light.shadowBiasChangeRate * d), 0, 1) * bias;
     //bias = max(bias * (1.0 - d), 0.0001);
     //bias = bias * tan(acos(d));
@@ -342,50 +344,55 @@ vec2 ParallaxMapping(vec2 uv, vec3 viewDir, out float finalHeight)
 }
 
 // 输入的initialUV和initialHeight均为视差遮挡映射的结果
-float ParallaxShadow(vec2 initialUV, vec3 lightDir, float initialHeight)
+float ParallaxShadow(vec2 initialUV, vec3 tangentLightDir, float initialHeight, float inShadow)
 {
     float shadowMultiplier = 0;
-    if (dot(vec3(0, 0, 1), lightDir) > 0) //只算正对阳光的面
+    if (dot(vec3(0, 0, 1), tangentLightDir) > 0) //只算正对阳光的面 (这句删掉可能会导致崩溃)
     {
         // 根据光线方向决定层数（道理和视线方向一样）
-	float numLayers = mix(u_heightTextureMinAndMaxLayerNum.y, u_heightTextureMinAndMaxLayerNum.x, abs(dot(vec3(0, 0, 1), lightDir)));
-	float layerHeight = initialHeight / numLayers; //从当前点开始计算层深（没必要以整个范围）
-    vec2 texStep = vec2(0); //层深对应偏移量
-    if (u_ParallaxOffsetLimit)
-    {
-	    texStep = u_heightTextureScale * lightDir.xy / numLayers;
-    }
-    else
-    {
-        texStep = u_heightTextureScale * lightDir.xy / lightDir.z / numLayers;
-    }
-    // 继续向上找是否有相交点
-	float currentLayerHeight = initialHeight - layerHeight; //当前相交点前的最后层深
-	vec2 currentTexCoords = initialUV + texStep;
-	float heightFromTexture = texture(u_heightTexture, currentTexCoords).r;
-	int stepIndex = 1; //向上查找次数
-        float numSamplesUnderSurface = 0; //统计被遮挡的层数
-	while(currentLayerHeight > 0) //直到达到表面
-	{
-	    if(heightFromTexture < currentLayerHeight) //采样结果小于当前层深则有交点
+	    float numLayers = mix(u_parallaxShadowMinAndMaxLayerNum.y, u_parallaxShadowMinAndMaxLayerNum.x, abs(dot(vec3(0, 0, 1), tangentLightDir)));
+	    float layerHeight = initialHeight / numLayers; //从当前点开始计算层深（没必要以整个范围）
+        vec2 texStep = vec2(0); //层深对应偏移量
+        if (u_ParallaxOffsetLimit)
+        {
+	        texStep = u_heightTextureScale * tangentLightDir.xy / numLayers;
+        }
+        else
+        {
+            texStep = u_heightTextureScale * tangentLightDir.xy / tangentLightDir.z / numLayers;
+        }
+        // 继续向上找是否有相交点
+	    float currentLayerHeight = initialHeight - layerHeight; //当前相交点前的最后层深
+	    vec2 currentTexCoords = initialUV + texStep;
+	    float heightFromTexture = texture(u_heightTexture, currentTexCoords).r;
+	    int stepIndex = 1; //向上查找次数
+        int numSamplesUnderSurface = 0; //统计被遮挡的层数
+	    while(currentLayerHeight > 0) //直到达到表面
+	    {
+	        if(heightFromTexture < currentLayerHeight) //采样结果小于当前层深则有交点
             {
-		numSamplesUnderSurface += 1;              
+		        numSamplesUnderSurface++;              
                 float atten = (1 - stepIndex / numLayers); //阴影的衰减值：越接近顶部（或者说浅处），阴影强度越小
                 // 以当前层深到高度贴图采样值的距离作为阴影的强度并乘以阴影的衰减值
-		float newShadowMultiplier = (currentLayerHeight - heightFromTexture) * atten;
-		shadowMultiplier = max(shadowMultiplier, newShadowMultiplier);
+		        float newShadowMultiplier = (currentLayerHeight - heightFromTexture) * atten;
+		        shadowMultiplier = max(shadowMultiplier, newShadowMultiplier);
+	        }
+
+	        stepIndex += 1;
+	        currentLayerHeight -= layerHeight;
+	        currentTexCoords += texStep;
+	        heightFromTexture = texture(u_heightTexture, currentTexCoords).r;
 	    }
 
-	    stepIndex += 1;
-	    currentLayerHeight -= layerHeight;
-	    currentTexCoords += texStep;
-	    heightFromTexture = texture(u_heightTexture, currentTexCoords).r;
-	}
-
-	if(numSamplesUnderSurface < 1) //没有交点，则不在阴影区域
-	    shadowMultiplier = 1;
-	else 
-	    shadowMultiplier = 1 - shadowMultiplier;
+	    if(numSamplesUnderSurface < 1) //没有交点，则不在阴影区域
+        {
+	        shadowMultiplier = 0;       
+        }
+            
+        if(inShadow > 0)
+        {
+            shadowMultiplier = inShadow;
+        }
     }
     return shadowMultiplier;
 }
@@ -506,10 +513,10 @@ void main()
         vec3 specular = u_specularColor * specularStrength * specularTexColor * lightColor;
         
         //阴影值
-        float shadow = light.castShadow ? light.type == POINT_LIGHT ? ShadowCalculation_pointLight(i, lightDir, normal) : ShadowCalculation(i, lightDir, normal) : 0;
+        float shadow = light.castShadow ? light.type == POINT_LIGHT ? ShadowCalculation_pointLight(i, v_TangentLightDir[i]) : ShadowCalculation(i, v_TangentLightDir[i]) : 0;
         if(u_enableHeightTexture && u_enableHeightTextureShadow && light.castShadow)
         {
-            shadow = clamp(shadow + 1 - ParallaxShadow(texCoords, v_TangentLightDir[i], parallaxHeight), 0, 1);
+            shadow = clamp(ParallaxShadow(texCoords, v_TangentLightDir[i], parallaxHeight, shadow) * u_heightTextureShadowScale, 0, 1);
         }
         //合并所有光照
         allLightsColor += (diffuse + specular) * intensity * (1.0 - shadow);
@@ -518,6 +525,7 @@ void main()
     //合并所有颜色
     outColor = vec4(baseColor.rgb * (allLightsColor + u_emission_inside + u_ambient + reflectColor + refractColor) + u_emission_outside, u_enableRefract ? 1 : baseColor.a); //当使用折射时透明度保持为1
     
+    //输出第二个渲染目标
     float brightness = dot(outColor.rgb, vec3(0.2126, 0.7152, 0.0722)); //转换为灰度得到亮度值
     if(brightness > 1.0)
         BrightColor = vec4(outColor.rgb, 1.0); //输出高亮图像用于泛光效果

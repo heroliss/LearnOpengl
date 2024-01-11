@@ -492,14 +492,11 @@ namespace test {
 			{
 				ImGui::SameLine();
 				ImGui::SetNextItemWidth(50);
+				ImGui::DragFloat("Scale##HeightTextureScale", &mainMaterial->HeightTextureScale, 0.001f);
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(50);
 				ImGui::Checkbox("Offset Limit", &mainMaterial->ParallaxOffsetLimit);	
-				ImGui::SameLine();
-				ImGui::SetNextItemWidth(50);
-				ImGui::Checkbox("Shadow##HeightTextureShadow", &mainMaterial->EnableHeightTextureShadow);
 
-				ImGui::SetNextItemWidth(50);
-				ImGui::DragFloat("Scale", &mainMaterial->HeightTextureScale, 0.001f);
-				ImGui::SameLine();
 				ImGui::SetNextItemWidth(120);
 				ImGui::DragInt2("Layers Range", &mainMaterial->ParallaxMinAndMaxLayerNum.x, 1, 1, 999, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
 
@@ -512,6 +509,20 @@ namespace test {
 				}
 
 				ImGui::Checkbox("Enable Parallax Occlusion", &mainMaterial->EnableParallaxOcclusion);
+
+				ImGui::SetNextItemWidth(50);
+				ImGui::Checkbox("Height Texture Shadow", &mainMaterial->EnableHeightTextureShadow);
+				if (mainMaterial->EnableHeightTextureShadow)
+				{
+					ImGui::SameLine();
+					ImGui::SetNextItemWidth(50);
+					ImGui::DragFloat("Scale##HeightTextureShadowScale", &mainMaterial->HeightTextureShadowScale, 0.001f);
+
+					ImGui::SetNextItemWidth(120);
+					ImGui::DragInt2("Shadow Layers Range", &mainMaterial->ParallaxShadowMinAndMaxLayerNum.x, 1, 1, 999, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
+				}
+
+				ImGui::Separator();
 			}
 
 			//物体颜色

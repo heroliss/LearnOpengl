@@ -25,7 +25,9 @@ public:
 	std::shared_ptr<Texture> HeightTexture = Texture::Get(0, 0, 0);
 	bool EnableHeightTexture = true;
 	float HeightTextureScale = 0.1f;
-	glm::ivec2 ParallaxMinAndMaxLayerNum = glm::ivec2(4, 32);
+	float HeightTextureShadowScale = 5.0f;
+	glm::ivec2 ParallaxMinAndMaxLayerNum = glm::ivec2(32, 64);
+	glm::ivec2 ParallaxShadowMinAndMaxLayerNum = glm::ivec2(4, 64);
 	//视差映射
 	bool ParallaxOffsetLimit = false;
 	bool EnableReliefParallax = false;
@@ -72,7 +74,9 @@ public:
 		shader->SetUniform1i("u_heightTexture", 3);
 		if (HeightTexture != nullptr) HeightTexture->SetUnit(3); else HeightTexture->UnsetUnit(3);
 		shader->SetUniform1f("u_heightTextureScale", HeightTextureScale);
+		shader->SetUniform1f("u_heightTextureShadowScale", HeightTextureShadowScale);
 		shader->SetUniform2i("u_heightTextureMinAndMaxLayerNum", ParallaxMinAndMaxLayerNum.x, ParallaxMinAndMaxLayerNum.y);
+		shader->SetUniform2i("u_parallaxShadowMinAndMaxLayerNum", ParallaxShadowMinAndMaxLayerNum.x, ParallaxShadowMinAndMaxLayerNum.y);
 		shader->SetUniform1i("u_enableHeightTexture", EnableHeightTexture);
 
 		//视差映射

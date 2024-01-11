@@ -50,8 +50,9 @@ void main()
     float linearDepth = LinearizeDepth(gl_FragCoord.z, near_plane, far_plane); //计算线性深度值（结果是远近平面之间的深度值，不是百分比）
     float d1 = (linearDepth - u_showDepthRange.x) / (u_showDepthRange.y - u_showDepthRange.x); //透视矩阵限制范围后的线性深度百分比(0到1)
     float d2 = ((far_plane - near_plane) * gl_FragCoord.z + near_plane - u_showDepthRange.x) / (u_showDepthRange.y - u_showDepthRange.x); //正交矩阵限制范围后的线性深度百分比(0到1) 这里gl_FragCoord.z是0-1，表示深度百分比
-    //平滑过渡（随便弄的，可改进）
+    //平滑过渡（TODO:目前只是暂时能够保证显示出来，并不平滑）
     float t = pow(u_orthoRatio, 12);
     float d = (1 - t) * d1 + t * d2;
+    d = clamp(d, 0, 1); //保证深度值不会为负数，否则当启用ToneMapping后可能会将负数映射为正值显示出来
     outColor = vec4(vec3(1 - d), 1.0); //越深越黑的输出深度信息
 }
