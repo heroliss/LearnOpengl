@@ -110,6 +110,24 @@ public:
 	bool usingDebugShowLayer = false;
 	int debugShowLayer = 0;
 
+	//信息
+	int info_maxVertexAttribs; //最大属性数量
+	int info_maxUniformNum; //最大Uniform数量
+	int info_maxTextureUnits; //最大纹理单元数量
+	float info_maxAnisotropy; //最大各向异性过滤采样率
+	void InitInfo() {
+		//显示信息
+		std::cout << glGetString(GL_VERSION) << std::endl; //显示gl版本
+		GLCALL(glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &info_maxVertexAttribs));
+		std::cout << "Max vertex attribs:" << info_maxVertexAttribs << std::endl; //显示最大属性数量
+		GLCALL(glGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, &info_maxUniformNum));
+		std::cout << "Max uniforms:" << info_maxUniformNum << std::endl; //显示最大Uniform数量
+		GLCALL(glGetIntegerv(GL_MAX_TEXTURE_UNITS, &info_maxTextureUnits));
+		std::cout << "Max texture units:" << info_maxTextureUnits << std::endl;//显示最大纹理单元数量
+		GLCALL(glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &info_maxAnisotropy));
+		std::cout << "Max anisotropy:" << info_maxAnisotropy << std::endl;//显示最大各向异性过滤采样率
+	}
+
 	//-------------------UniformBuffer----------------------
 	std::shared_ptr<UniformBuffer> matricesUniformBuffer;
 	std::shared_ptr<UniformBuffer> lightsUniformBuffer;
@@ -166,7 +184,7 @@ public:
 	void SetMultiSample(unsigned int multiSample)
 	{
 		this->multiSample = multiSample;
-		multiSampleFrameBuffer = multiSample == 0 ? nullptr : std::make_shared<Framebuffer>(2 ,multiSample);
+		multiSampleFrameBuffer = multiSample == 0 ? nullptr : std::make_shared<Framebuffer>(2, multiSample);
 	}
 
 	void BindCurrentFrameBuffer() {

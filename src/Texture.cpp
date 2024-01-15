@@ -3,6 +3,7 @@
 #include <format>
 #include "stb_image.h"
 #include "GLCALL.h"
+#include "Application.h"
 
 std::unordered_map<std::string, std::shared_ptr<Texture>> Texture::m_TextureCache;
 static int loadCount = 0; //调试用，加载总数
@@ -11,7 +12,12 @@ const static int errorTextureChannels = 3;
 static char errorTextureData[errorTextureWidth * errorTextureWidth * errorTextureChannels];
 static bool errorTextureInited = false;
 
-bool Texture::enableSRGB;
+//TODO：For Debug
+bool Texture::enableSRGB = false;
+bool Texture::enableMipmap = true;
+float Texture::globalAnisotropy = 0;
+
+
 void Texture::Init()
 {
 	GLCALL(glGenTextures(1, &m_id));
@@ -72,8 +78,11 @@ void Texture::SetPureColor(unsigned char r, unsigned char g, unsigned char b) {
 /// 仅加载贴图，不会缓存
 /// </summary>
 /// <param name="path"></param>
-void Texture::Load(const std::string& path, bool flip, bool sRGB, bool generateMipmap) {
+void Texture::Load(const std::string& path, bool flip, bool sRGB, bool generateMipmap, float anisotropy, int desired_channels) {
 	sRGB = sRGB && enableSRGB; //调试用
+	generateMipmap = generateMipmap && enableMipmap;  //调试用
+	if (globalAnisotropy < 1.0f) globalAnisotropy = 0;
+	else anisotropy = globalAnisotropy;  //调试用
 
 	loadCount++; //调试用
 	loadId = loadCount;
@@ -82,7 +91,7 @@ void Texture::Load(const std::string& path, bool flip, bool sRGB, bool generateM
 	//加载图片
 	this->path = path;
 	stbi_set_flip_vertically_on_load(flip);
-	auto loadedData = stbi_load(path.c_str(), &width, &height, &channels, 0);
+	auto loadedData = stbi_load(path.c_str(), &width, &height, &channels, desired_channels);
 	if (!loadedData) {
 		std::cout << "Load texture failed: " << path << std::endl;
 		//设置默认加载失败的警示贴图
@@ -95,7 +104,7 @@ void Texture::Load(const std::string& path, bool flip, bool sRGB, bool generateM
 		std::copy(errorTextureData, errorTextureData + size, data);
 	}
 	else {
-		free(data);;
+		free(data);
 		data = loadedData;
 	}
 
@@ -103,22 +112,22 @@ void Texture::Load(const std::string& path, bool flip, bool sRGB, bool generateM
 	GLenum innerFormat;
 	switch (channels) {
 	case 1:
-		format = GL_RED;
 		innerFormat = GL_RED;
+		format = GL_RED;
 		if (sRGB) std::cout << "单通道如何设置sRGB格式？" << std::endl; //TODO
 		break;
 	case 2:
-		format = GL_RG;
 		innerFormat = GL_RG;
+		format = GL_RG;
 		if (sRGB) std::cout << "两通道如何设置sRGB格式？" << std::endl; //TODO
 		break;
 	case 3:
-		format = GL_RGB;
 		innerFormat = sRGB ? GL_SRGB : GL_RGB;
+		format = GL_RGB;
 		break;
 	case 4:
-		format = GL_RGBA;
 		innerFormat = sRGB ? GL_SRGB_ALPHA : GL_RGBA;
+		format = GL_RGBA;
 		break;
 	default:
 		std::cout << "Load texture \"" << path << "\" have unexpected number of channels: " << channels << std::endl;
@@ -131,15 +140,38 @@ void Texture::Load(const std::string& path, bool flip, bool sRGB, bool generateM
 	if (generateMipmap)
 	{
 		GLCALL(glGenerateMipmap(GL_TEXTURE_2D));
-		setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); //启用mipmap时自动设置为三线性插值
 	}
 	else
 	{
-		setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR); //否则是双线性插值
 	}
 	setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	unbind();
+
+	SetAnisotropy(anisotropy);
+}
+
+//设置各向异性过滤
+void Texture::SetAnisotropy(float anisotropy) {
+	if (anisotropy < 1.0f) {
+		std::cout << "Warning：设置值(" << anisotropy << ")不能小于1" << std::endl;
+		anisotropy = 1.0f;
+	}
+	else
+	{
+		float maxAnisotropy = Application::GetInstance()->renderer->info_maxAnisotropy;
+		if (anisotropy > maxAnisotropy)
+		{
+			std::cout << "Warning：设置值(" << anisotropy << ")超过了系统支持各向异性过滤最大值" << maxAnisotropy << std::endl;
+			anisotropy = maxAnisotropy;
+		}
+	}
+	bind();
+	GLCALL(glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, anisotropy));
 	unbind();
 }
 
@@ -208,12 +240,12 @@ std::shared_ptr<Texture> Texture::Get(unsigned char r, unsigned char g, unsigned
 /// <param name="path"></param>
 /// <param name="flip"></param>
 /// <returns></returns>
-std::shared_ptr<Texture> Texture::Get(const std::string& path, bool flip, bool sRGB, bool generateMipmap)
+std::shared_ptr<Texture> Texture::Get(const std::string& path, bool flip, bool sRGB, bool generateMipmap, float anisotropy, int desired_channels)
 {
 	std::shared_ptr<Texture> texture;
 	if (FindOrCreate(path, texture) == false)
 	{
-		texture->Load(path, flip, sRGB, generateMipmap);
+		texture->Load(path, flip, sRGB, generateMipmap, anisotropy, desired_channels);
 	}
 	return texture;
 }

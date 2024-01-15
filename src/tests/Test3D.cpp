@@ -157,6 +157,10 @@ namespace test {
 			{
 				auto mesh = &model->meshes[j];
 				auto material = CreateModelMaterial(model.get(), mesh);
+				//对于第八个模型添加网格贴图
+				if (currentModelIndex == 7 && j == 1) {
+					material->MainTexture = enableMainTexture ? Texture::Get("res/textures/black-grid.jpg") : Texture::Get(255, 255, 255);
+				}
 				app->renderer->AddToDrawList(*mesh->va, material, modelMatrix, mesh->ib.get());
 			}
 
@@ -329,19 +333,34 @@ namespace test {
 			//模型选择
 			ImGui::SetNextItemWidth(100);
 			ImGui::Combo("##empty", &currentModelIndex, modelNames, IM_ARRAYSIZE(modelNames));
-			//sRGB
+			//纹理加载设置
+			bool needReloadTextures = false;
 			ImGui::SameLine();
-			if (ImGui::Checkbox("sRGB", &Texture::enableSRGB))
+			needReloadTextures |= ImGui::Checkbox("sRGB", &Texture::enableSRGB);
+			ImGui::SameLine();
+			needReloadTextures |= ImGui::Checkbox("Mipmap", &Texture::enableMipmap);
+			if (needReloadTextures)
 			{
 				//需要重新加载贴图
 				Texture::ClearCache();
 				//重新加载天空盒立方体贴图
 				skybox.LoadDefaultCubemap();
 			}
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(40);
+			if (ImGui::DragFloat("Anisotropy", &Texture::globalAnisotropy, 0.1, 0, 16, "%.1f"))
+			{
+				//所有图片重新设置各向异性过滤
+				for (const auto& pair : Texture::GetCache()) {
+					auto texture = pair.second;
+					texture->SetAnisotropy(Texture::globalAnisotropy);
+				}
+			}
+			ImGui::SetItemTooltip("设置各向异性过滤采样率（1代表关闭，小于1代表不覆盖原设置，超过系统最大值会保持为最大值（通常为16））"); //可设置为1-16的小数，超出范围会报错
+
 			//立方体模型设置
 			if (currentModelIndex == 0)
 			{
-				ImGui::SameLine();
 				ImGui::Checkbox("Multiple cubes", &mutiCubes);
 				ImGui::SameLine();
 				ImGui::SetNextItemWidth(50);
@@ -495,7 +514,7 @@ namespace test {
 				ImGui::DragFloat("Scale##HeightTextureScale", &mainMaterial->HeightTextureScale, 0.001f);
 				ImGui::SameLine();
 				ImGui::SetNextItemWidth(50);
-				ImGui::Checkbox("Offset Limit", &mainMaterial->ParallaxOffsetLimit);	
+				ImGui::Checkbox("Offset Limit", &mainMaterial->ParallaxOffsetLimit);
 
 				ImGui::SetNextItemWidth(120);
 				ImGui::DragInt2("Layers Range", &mainMaterial->ParallaxMinAndMaxLayerNum.x, 1, 1, 999, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);

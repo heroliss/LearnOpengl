@@ -36,17 +36,7 @@ int Renderer::Init()
 	//GLCALL(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS));
 	//GLCALL(glDebugMessageCallback(MessageCallback, 0));
 
-	//显示信息
-	std::cout << glGetString(GL_VERSION) << std::endl; //显示gl版本
-	int maxVertexAttribs;
-	GLCALL(glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &maxVertexAttribs));
-	std::cout << "Max vertex attribs:" << maxVertexAttribs << std::endl; //显示最大属性数量
-	int maxUniformNum;
-	GLCALL(glGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, &maxUniformNum));
-	std::cout << "Max uniforms:" << maxUniformNum << std::endl; //显示最大Uniform数量
-	int max_texture_units;
-	GLCALL(glGetIntegerv(GL_MAX_TEXTURE_UNITS, &max_texture_units));
-	std::cout << "Max texture units:" << max_texture_units << std::endl;
+	InitInfo();
 
 	ResetViewportSize(ViewportWidth, ViewportHeight);
 	//ResetCamera();

@@ -8,6 +8,7 @@ class Texture {
 public:
 	Texture();
 	~Texture();
+	void SetAnisotropy(float anisotropy);
 	void setParameter(unsigned int pname, unsigned int param);
 	void setParameter(unsigned int pname, float* param);
 	void SetUnit(unsigned int unit) const;
@@ -16,14 +17,17 @@ public:
 	void unbind() const;
 	void InitAsDepth(unsigned int width, unsigned int height);
 	static std::shared_ptr<Texture> Get(unsigned char r, unsigned char g, unsigned char b);
-	static std::shared_ptr<Texture> Get(const std::string& path, bool flip = false, bool sRGB = true, bool generateMipmap = true);
+	static std::shared_ptr<Texture> Get(const std::string& path, bool flip = false, bool sRGB = true, bool generateMipmap = true, float anisotropy = 16.0f, int desired_channels = 0);
 	inline std::string GetPath() { return this->path; }
 	inline unsigned int GetId() const { return this->m_id; }
 	inline unsigned int GetWidth() const { return this->width; }
 	inline unsigned int GetHeight() const { return this->height; }
 
+	static const std::unordered_map<std::string, std::shared_ptr<Texture>>& GetCache() { return m_TextureCache; }
 	static void ClearCache() { m_TextureCache.clear(); }
 	static bool enableSRGB; //调试用
+	static bool enableMipmap; //调试用
+	static float globalAnisotropy; //调试用
 private:
 	int loadId = 0; //调试用
 	std::string path;
@@ -32,7 +36,7 @@ private:
 	unsigned char* data = nullptr;
 
 	void Init();
-	void Load(const std::string& path, bool flip = false, bool sRGB = true, bool generateMipmap = true);  //这个方法会改变path，但path不能随便修改，因为它是贴图缓存的key
+	void Load(const std::string& path, bool flip = false, bool sRGB = true, bool generateMipmap = true, float anisotropy = 16.0f, int desired_channels = 0);  //这个方法会改变path，但path不能随便修改，因为它是贴图缓存的key
 	void SetPureColor(unsigned char r, unsigned char g, unsigned char b); //同上
 	static bool FindOrCreate(const std::string& path, std::shared_ptr<Texture>& texture);
 	static std::unordered_map<std::string, std::shared_ptr<Texture>> m_TextureCache;

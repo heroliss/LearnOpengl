@@ -11,6 +11,7 @@ class ToneMapping : public PostProcessingMaterial
 public:
 	float gamma = 2.2f;
 	bool followSRGB = true;
+	bool followSRGB_2 = false;
 	bool useACESToneMapping = true;
 	float adapted_lum = 1;
 	std::string GetName() const override { return "Tone Mapping"; }
@@ -33,10 +34,10 @@ public:
 
 		ImGui::SameLine(120);
 
-		ImGui::SetNextItemWidth(60);
+		ImGui::SetNextItemWidth(50);
 		ImGui::DragFloat(("gamma" + idText).c_str(), &gamma, 0.01);
 		ImGui::SameLine();
-		ImGui::Checkbox(("follow sRGB" + idText).c_str(), &followSRGB);
+		ImGui::Checkbox(("follow sRGB##1" + idText).c_str(), &followSRGB);
 		if (followSRGB) {
 			gamma = Texture::enableSRGB ? 2.2f : 1.0f;
 		}
@@ -45,8 +46,13 @@ public:
 
 		ImGui::Checkbox("ACES ToneMapping", &useACESToneMapping);
 		ImGui::SameLine();
-		ImGui::SetNextItemWidth(60);
+		ImGui::SetNextItemWidth(50);
 		ImGui::DragFloat("adapted_lum", &adapted_lum, 0.001f, 0, 999);
+		ImGui::SameLine();
+		ImGui::Checkbox(("follow sRGB##2" + idText).c_str(), &followSRGB_2);
+		if (followSRGB_2) {
+			useACESToneMapping = Texture::enableSRGB;
+		}
 	}
 
 	ToneMapping* CreateObject() override {
