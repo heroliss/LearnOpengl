@@ -33,7 +33,8 @@ public:
 	bool EnableReliefParallax = false;
 	bool EnableParallaxOcclusion = true;
 	unsigned int ReliefParallaxHalfSearchNum = 5;
-	bool EnableHeightTextureShadow = true;
+	bool EnableHeightTextureSelfShadow = true;
+	bool EnableParallaxFragPos = true;
 
 	glm::vec3& viewPos = Application::GetInstance()->renderer->camera.position;
 
@@ -84,7 +85,8 @@ public:
 		shader->SetUniform1i("u_ReliefParallax", EnableReliefParallax);
 		shader->SetUniform1i("u_ParallaxOcclusion", EnableParallaxOcclusion);
 		shader->SetUniform1i("u_HalfSearchNum", ReliefParallaxHalfSearchNum);
-		shader->SetUniform1i("u_enableHeightTextureShadow", EnableHeightTextureShadow);
+		shader->SetUniform1i("u_enableHeightTextureSelfShadow", EnableHeightTextureSelfShadow);
+		shader->SetUniform1i("u_enableParallaxFragPos", EnableParallaxFragPos);
 
 		//阴影深度图
 		for (int i = 0; i < MAX_LIGHT_COUNT; i++)

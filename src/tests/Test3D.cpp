@@ -369,7 +369,6 @@ namespace test {
 			//小行星带模型设置
 			else if (currentModelIndex == 5)
 			{
-				ImGui::SameLine();
 				ImGui::SetNextItemWidth(60);
 				if (ImGui::DragInt("Asteroid Amount", (int*)&asteroidBeltAmount, 1, 0, 999999))
 				{
@@ -519,6 +518,8 @@ namespace test {
 				ImGui::SetNextItemWidth(120);
 				ImGui::DragInt2("Layers Range", &mainMaterial->ParallaxMinAndMaxLayerNum.x, 1, 1, 999, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
 
+				ImGui::Checkbox("Enable Parallax Occlusion", &mainMaterial->EnableParallaxOcclusion);
+				ImGui::SameLine();
 				ImGui::Checkbox("Enable Relief Parallax", &mainMaterial->EnableReliefParallax);
 				if (mainMaterial->EnableReliefParallax)
 				{
@@ -527,11 +528,9 @@ namespace test {
 					ImGui::DragInt("Half Search Num", (int*)&mainMaterial->ReliefParallaxHalfSearchNum, 1, 1, 99, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
 				}
 
-				ImGui::Checkbox("Enable Parallax Occlusion", &mainMaterial->EnableParallaxOcclusion);
-
 				ImGui::SetNextItemWidth(50);
-				ImGui::Checkbox("Height Texture Shadow", &mainMaterial->EnableHeightTextureShadow);
-				if (mainMaterial->EnableHeightTextureShadow)
+				ImGui::Checkbox("Parallax Self Shadow", &mainMaterial->EnableHeightTextureSelfShadow);
+				if (mainMaterial->EnableHeightTextureSelfShadow)
 				{
 					ImGui::SameLine();
 					ImGui::SetNextItemWidth(50);
@@ -540,6 +539,8 @@ namespace test {
 					ImGui::SetNextItemWidth(120);
 					ImGui::DragInt2("Shadow Layers Range", &mainMaterial->ParallaxShadowMinAndMaxLayerNum.x, 1, 1, 999, "%d", ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp);
 				}
+				ImGui::Checkbox("Parallax Frag Pos", &mainMaterial->EnableParallaxFragPos);
+				ImGui::SetItemTooltip("开启后使用被视差贴图偏移后的片元位置来计算光照和阴影");
 
 				ImGui::Separator();
 			}

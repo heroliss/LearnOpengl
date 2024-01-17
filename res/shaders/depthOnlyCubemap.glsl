@@ -16,8 +16,8 @@ void main()
 
 ##shader geometry
 layout (triangles) in;
-layout (triangle_strip, max_vertices=18) out;
-
+layout (triangle_strip, max_vertices = 18) out;
+ 
 uniform mat4 lightSpaceMatrix[6];
 
 out vec4 FragPos;

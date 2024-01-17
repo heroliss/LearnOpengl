@@ -39,6 +39,20 @@ layout(binding = 0, std140) uniform Matrices
 //    float far_plane;
 };
 
+struct VertexData
+{
+    vec2 TexCoord;
+    mat3 TBN; //切线空间转世界空间的矩阵
+    mat3 inversedTBN; //世界空间转切线空间的矩阵
+    vec3 FragPos; //世界空间的片元位置
+    //vec4 FragPosLightSpaces[MAX_LIGHT_COUNT]; //光照空间的片元位置 //预计算
+    float LightsEnable[MAX_LIGHT_COUNT];
+    //预计算切线空间
+    vec3 TangentViewPos;
+    vec3 TangentFragPos;
+    //vec3 TangentLightDir[MAX_LIGHT_COUNT]; //预计算
+};
+
 
 ##shader vertex
 uniform mat4 u_Model;
@@ -52,25 +66,16 @@ in vec3 tangent;
 in vec3 bitangent;
 in mat4 instanceMatrix;
 
-out vec2 v_TexCoord;
-out mat3 v_TBN;
-out vec3 v_FragPos; //世界空间的片元位置
-out vec4 v_FragPosLightSpaces[MAX_LIGHT_COUNT]; //光照空间的片元位置
-out float v_LightsEnable[MAX_LIGHT_COUNT];
-
-//预计算切线空间
-out vec3 v_TangentViewPos;
-out vec3 v_TangentFragPos;
-out vec3 v_TangentLightDir[MAX_LIGHT_COUNT];
+out VertexData v;
 
 void main()
 {
     mat4 modelMatrix = u_Model == mat4(0) ? instanceMatrix : u_Model;
 
     vec4 worldPos = modelMatrix * vec4(position, 1.0); 
-    v_FragPos = worldPos.xyz; //输出世界空间的顶点位置
+    v.FragPos = worldPos.xyz; //输出世界空间的顶点位置
     gl_Position = u_Projection * u_View * worldPos; //输出齐次裁剪空间的顶点位置
-    v_TexCoord = texCoord; //输出纹理坐标
+    v.TexCoord = texCoord; //输出纹理坐标
     
     //计算法线矩阵
     mat3 worldNormalMatrix = mat3(transpose(inverse(modelMatrix)));
@@ -84,12 +89,12 @@ void main()
     //    T = normalize(T - dot(T, N) * N);
     //    vec3 B = cross(T, N);
 
-    v_TBN = mat3(T, B, N); //输出切线空间转世界空间的矩阵
+    v.TBN = mat3(T, B, N); //输出切线空间转世界空间的矩阵
 
     //预计算切线空间
-    mat3 inversedTBN = transpose(v_TBN); //世界空间转切线空间的矩阵
-    v_TangentViewPos  = inversedTBN * u_viewPos;
-    v_TangentFragPos  = inversedTBN * v_FragPos;
+    v.inversedTBN = transpose(v.TBN); //世界空间转切线空间的矩阵
+    v.TangentViewPos  = v.inversedTBN * u_viewPos;
+    v.TangentFragPos  = v.inversedTBN * v.FragPos;
 
     //计算光照空间的顶点位置
     for (int i = 0; i < u_lightNum; i++)
@@ -97,8 +102,8 @@ void main()
         Light light = u_lights[i];
 
         //非点光源时计算片元在光照空间中的位置
-        if(light.type != POINT_LIGHT)
-            v_FragPosLightSpaces[i] = light.lightSpaceMatrix * worldPos; 
+        //if(light.type != POINT_LIGHT)
+        //    v.FragPosLightSpaces[i] = light.lightSpaceMatrix * worldPos;  //预计算：光照空间顶点位置
 
         //TOOD:下面是乱加的：用于解决 加了法线贴图后背面被照亮 和 光源在背面也有高光泄露 的问题（如果开启了阴影并且不是正面剔除，加了法线贴图后背面被照亮没有这个问题了）
         vec3 lightDir;
@@ -108,11 +113,46 @@ void main()
         }
         else if (light.type == POINT_LIGHT || light.type == SPOT_LIGHT) //点光或聚光
         {
-            lightDir = normalize(light.pos - v_FragPos);
+            lightDir = normalize(light.pos - v.FragPos);
         }
-        v_LightsEnable[i] = dot(N, lightDir);
-        v_TangentLightDir[i] = inversedTBN * lightDir; //输出切线空间的光照方向
+        v.LightsEnable[i] = dot(N, lightDir);
+        //v.TangentLightDir[i] = v.inversedTBN * lightDir; //预计算：切线空间的光照方向
     }
+}
+
+
+
+##shader geometry
+layout (triangles) in;
+layout (triangle_strip, max_vertices = 3) out;
+
+in VertexData v[];
+out VertexData f;
+out vec2 TrangleTexCoord[3]; //三角形三个顶点的纹理坐标
+out vec3 TrangleFragPos[3];
+//out vec3 TrangleFragPosLightSpaces[ 6]; //三角形内三个顶点的光照空间位置  //预计算
+//out vec3 TrangleTangentLightDir[ 4];  //预计算
+
+void main()
+{
+    for(int i = 0; i < gl_in.length(); i++) {
+        f = v[i];
+        TrangleFragPos[i] = f.FragPos;
+        TrangleTexCoord[i] = f.TexCoord;
+        //传递三角形三个顶点的预计算值
+        //for(int j = 0; j < u_lightNum; j++)
+        //{
+        //    TrangleFragPosLightSpaces[j * 3 + i] = f.FragPosLightSpaces[j].xyz;
+        //    TrangleTangentLightDir[j * 3 + i] = f.TangentLightDir[j];
+        //}
+    }
+
+    for(int i = 0; i < gl_in.length(); i++) {
+        f = v[i];
+        gl_Position = gl_in[i].gl_Position;
+        EmitVertex();
+    }
+    EndPrimitive();
 }
 
 
@@ -145,7 +185,8 @@ uniform bool u_ParallaxOffsetLimit;
 uniform bool u_ReliefParallax;
 uniform bool u_ParallaxOcclusion;
 uniform int u_HalfSearchNum;
-uniform bool u_enableHeightTextureShadow;
+uniform bool u_enableHeightTextureSelfShadow;
+uniform bool u_enableParallaxFragPos;
 
 uniform samplerCube u_cubemap; //环境立方体贴图
 //折射
@@ -159,16 +200,11 @@ uniform samplerCube u_shadowCubemaps[MAX_LIGHT_COUNT]; //阴影立方体深度�
 layout (location = 0) out vec4 outColor;
 layout (location = 1) out vec4 BrightColor;
 
-in vec2 v_TexCoord;
-in mat3 v_TBN;
-in vec3 v_FragPos; //世界空间的片元位置
-in vec4 v_FragPosLightSpaces[MAX_LIGHT_COUNT]; //光照空间的片元位置
-in float v_LightsEnable[MAX_LIGHT_COUNT];
-
-//预计算切线空间
-in vec3 v_TangentViewPos;
-in vec3 v_TangentFragPos;
-in vec3 v_TangentLightDir[MAX_LIGHT_COUNT];
+in VertexData f;
+in vec2 TrangleTexCoord[3]; //三角形三个顶点的纹理坐标
+in vec3 TrangleFragPos[3];
+//in vec3 TrangleFragPosLightSpaces[6]; //三角形内三个顶点的光照空间位置 //预计算
+//in vec3 TrangleTangentLightDir[4]; //预计算
 
 const vec3 sampleOffsetDirections[20] = vec3[]
 (
@@ -179,11 +215,41 @@ const vec3 sampleOffsetDirections[20] = vec3[]
    vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
 );
 
-float ShadowCalculation_pointLight(int index, vec3 tangentLightDir)
+// 边函数，用于计算重心坐标
+float edgeFunction(vec2 a, vec2 b, vec2 c) {
+    return (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x);
+}
+
+// 重心坐标插值计算函数
+vec3 calculateBarycentricFromUV(vec2 uv_changed, vec2 uv[3]) {
+    // 计算重心坐标
+    float areaTotal = edgeFunction(uv[0], uv[1], uv[2]);
+    float area0 = edgeFunction(uv[1], uv[2], uv_changed);
+    float area1 = edgeFunction(uv[2], uv[0], uv_changed);
+    float area2 = edgeFunction(uv[0], uv[1], uv_changed);
+
+    vec3 barycentric;
+    barycentric[0] = area0 / areaTotal;
+    barycentric[1] = area1 / areaTotal;
+    barycentric[2] = area2 / areaTotal;
+    return barycentric;
+}
+
+vec3 calculateByBarycentric(vec3 barycentric, vec3 pos0, vec3 pos1, vec3 pos2)
+{
+    vec3 newPosition = barycentric[0] * pos0 +
+                            barycentric[1] * pos1 +
+                            barycentric[2] * pos2;
+
+    return newPosition;
+}
+
+float ShadowCalculation_pointLight(int index, vec3 tangentLightDir, vec3 fragPos)
 {
     Light light = u_lights[index];
     float far_plane = light.shadowNearAndFar.y;
-    vec3 lightToFrag = v_FragPos - light.pos; 
+    //vec3 lightToFrag = f.FragPos - light.pos; 
+    vec3 lightToFrag = fragPos - light.pos; 
 
     float bias = light.shadowBias;
     float d = dot(tangentLightDir, vec3(0,0,1));
@@ -193,7 +259,7 @@ float ShadowCalculation_pointLight(int index, vec3 tangentLightDir)
     if(currentDepth > far_plane)
         return 0.0;
 
-    //float diskRadius = (light.shadowSampleDiskRadius + (length(u_viewPos - v_FragPos) / far_plane));
+    //float diskRadius = (light.shadowSampleDiskRadius + (length(u_viewPos - f.FragPos) / far_plane));
     float diskRadius = light.shadowSampleDiskRadius;
 
     float shadow = 0.0;
@@ -227,10 +293,8 @@ float ShadowCalculation_pointLight(int index, vec3 tangentLightDir)
     return shadow;
 }
 
-float ShadowCalculation(int index, vec3 tangentLightDir) //这里lightDir是
+float ShadowCalculation(int index, vec3 tangentLightDir, vec4 fragPosLightSpace) //这里lightDir是
 {
-    vec4 fragPosLightSpace = v_FragPosLightSpaces[index];
-
     //执行透视除法，得到NDC坐标
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
 
@@ -270,20 +334,20 @@ float ShadowCalculation(int index, vec3 tangentLightDir) //这里lightDir是
     return shadow;
 };
 
-vec2 ParallaxMapping(vec2 uv, vec3 viewDir, out float finalHeight)
+vec2 ParallaxMapping(vec2 uv, vec3 tangentViewDir, out float finalHeight)
 {
     //陡峭视差映射
     // 优化：根据视角来决定分层数(因为视线方向越垂直于平面，纹理偏移量较少，不需要过多的层数来维持精度)
-    float layerNum = mix(u_heightTextureMinAndMaxLayerNum.y, u_heightTextureMinAndMaxLayerNum.x, abs(dot(vec3(0,0,1), viewDir)));//层数
+    float layerNum = mix(u_heightTextureMinAndMaxLayerNum.y, u_heightTextureMinAndMaxLayerNum.x, abs(dot(vec3(0,0,1), tangentViewDir)));//层数
     float layerDepth = 1 / layerNum;//层深					
     vec2 deltaTexCoords = vec2(0);//层深对应偏移量
     if (u_ParallaxOffsetLimit) //建议使用偏移量限制，否则视线方向越平行于平面偏移量过大，分层明显
     {
-        deltaTexCoords = viewDir.xy / layerNum * u_heightTextureScale;
+        deltaTexCoords = tangentViewDir.xy / layerNum * u_heightTextureScale;
     }
     else
     {
-        deltaTexCoords = viewDir.xy / viewDir.z / layerNum * u_heightTextureScale;
+        deltaTexCoords = tangentViewDir.xy / tangentViewDir.z / layerNum * u_heightTextureScale;
     }
     vec2 currentTexCoords = uv;//当前层纹理坐标
     float currentDepthMapValue = texture(u_heightTexture, currentTexCoords).r;//当前纹理坐标采样结果
@@ -344,7 +408,7 @@ vec2 ParallaxMapping(vec2 uv, vec3 viewDir, out float finalHeight)
 }
 
 // 输入的initialUV和initialHeight均为视差遮挡映射的结果
-float ParallaxShadow(vec2 initialUV, vec3 tangentLightDir, float initialHeight, float inShadow)
+float ParallaxShadow(vec2 initialUV, vec3 tangentLightDir, float initialHeight)
 {
     float shadowMultiplier = 0;
     if (dot(vec3(0, 0, 1), tangentLightDir) > 0) //只算正对阳光的面 (这句删掉可能会导致崩溃)
@@ -388,49 +452,56 @@ float ParallaxShadow(vec2 initialUV, vec3 tangentLightDir, float initialHeight, 
         {
 	        shadowMultiplier = 0;       
         }
-            
-        if(inShadow > 0)
-        {
-            shadowMultiplier = inShadow;
-        }
     }
     return shadowMultiplier;
 }
 
 void main()
 {    
-    //切线空间中片元指向摄像机的方向
-    vec3 tangentViewDir = normalize(v_TangentViewPos - v_TangentFragPos);
-    
+    //切线空间中片元指向摄像机的方向 (这个方向不会受到视差贴图的影响)
+    vec3 tangentViewDir = normalize(f.TangentViewPos - f.TangentFragPos);
+    //片元指向摄像机的方向 (这个方向不会受到视差贴图的影响)
+    vec3 viewDir = normalize(u_viewPos - f.FragPos);    
+
     //使用视差图获取改变后的纹理坐标
-    vec2 texCoords = v_TexCoord;
+    vec2 parallaxTexCoords = f.TexCoord; //视差贴图偏移后的片元的纹理坐标，默认为原坐标
+    vec3 parallaxFragPos = f.FragPos; //视差贴图偏移后的片元位置，默认为原位置
     float parallaxHeight;
+    vec3 barycentric;
     if(u_enableHeightTexture)
     {
-        texCoords = ParallaxMapping(v_TexCoord, tangentViewDir, parallaxHeight);
-        if(texCoords.x > 1.0 || texCoords.y > 1.0 || texCoords.x < 0.0 || texCoords.y < 0.0)
+        parallaxTexCoords = ParallaxMapping(f.TexCoord, tangentViewDir, parallaxHeight);
+        if(parallaxTexCoords.x > 1.0 || parallaxTexCoords.y > 1.0 || parallaxTexCoords.x < 0.0 || parallaxTexCoords.y < 0.0)
         discard;
+
+        if(u_enableParallaxFragPos)
+        {
+            barycentric = calculateBarycentricFromUV(parallaxTexCoords, TrangleTexCoord);
+            vec3 a = calculateByBarycentric(barycentric, TrangleFragPos[0], TrangleFragPos[1], TrangleFragPos[2]); //浮在表面的视差偏移后的点
+            vec3 v = a - f.FragPos;
+            vec3 v2 = -viewDir * dot(v, -viewDir);
+            parallaxFragPos = f.FragPos + v2;
+        }
     }
 
     //纹理颜色
-    vec4 texColor = texture(u_mainTexture, texCoords);
+    vec4 texColor = texture(u_mainTexture, parallaxTexCoords);
     
     //基础颜色 (包括透明度)
     vec4 baseColor = texColor * u_objectColor;
     
     //从法线贴图范围[0,1]获取法线
-    vec3 normal = texture(u_normalTexture, texCoords).rgb;
-    normal = normalize(normal * 2.0 - 1.0); //将法线向量转换为范围[-1,1]
-    normal = normalize(v_TBN * normal); //从切线空间转到世界空间
+    vec3 parallaxNormal = texture(u_normalTexture, parallaxTexCoords).rgb;
+    parallaxNormal = normalize(parallaxNormal * 2.0 - 1.0); //将法线向量转换为范围[-1,1]
+    parallaxNormal = normalize(f.TBN * parallaxNormal); //从切线空间转到世界空间
 
-    //片元指向摄像机的方向
-    vec3 viewDir = normalize(u_viewPos - v_FragPos);
+
 
     //镜面贴图（粗糙度）
-    vec3 specularTexColor = vec3(texture(u_specularTexture, texCoords));
+    vec3 specularTexColor = vec3(texture(u_specularTexture, parallaxTexCoords));
 
     //反射光
-    vec3 viewReflectDir = reflect(-viewDir, normal); //世界空间中的视线反射方向
+    vec3 viewReflectDir = reflect(-viewDir, parallaxNormal); //世界空间中的视线反射方向
     vec3 reflectColor = texture(u_cubemap, viewReflectDir).rgb; //立方体贴图采样反射光
     reflectColor *= specularTexColor;
     reflectColor *= u_specularColor;
@@ -440,7 +511,7 @@ void main()
     vec3 refractColor = vec3(0);
     if(u_enableRefract)
     {
-        vec3 viewRefractDir = refract(-viewDir, normal, 1.0f / u_refractiveIndex); //世界空间中的视线折射方向
+        vec3 viewRefractDir = refract(-viewDir, parallaxNormal, 1.0f / u_refractiveIndex); //世界空间中的视线折射方向
         refractColor = texture(u_cubemap, viewRefractDir).rgb; //立方体贴图采样折射光
         refractColor *= u_refractColor;
         refractColor *= 1 - baseColor.a; //透明度越大折射光越强
@@ -453,32 +524,32 @@ void main()
         Light light = u_lights[i];  
 
         //跳过无亮度的光照
-        if (light.type == NONE_LIGHT || light.color == vec3(0) || light.brightness <= 0 || v_LightsEnable[i] <= 0)
+        if (light.type == NONE_LIGHT || light.color == vec3(0) || light.brightness <= 0 || f.LightsEnable[i] <= 0)
         {
             continue;
         }
 
-        vec3 lightDir; //光照方向的反方向(指向光源的方向)
-        float lightDistance; //记录光源距离
+        vec3 parallaxLightDir; //光照方向的反方向(指向光源的方向)
+        float parallaxLightDistance; //记录光源距离
         float intensity = 1; //局部的光照强度（目前仅用于聚光灯）
 
         if (light.type == PARALLEL_LIGHT) //平行光
         {
-            lightDir = -normalize(light.direction);
-            lightDistance = 0; //平行光的光源距离恒为0
+            parallaxLightDir = -normalize(light.direction);
+            parallaxLightDistance = 0; //平行光的光源距离恒为0
         }
         else if (light.type == POINT_LIGHT || light.type == SPOT_LIGHT) //点光或聚光
         {
-            vec3 fragToLight = light.pos - v_FragPos;
-            lightDir = normalize(fragToLight);
-            lightDistance = length(fragToLight);
+            vec3 parallaxFragToLight = light.pos - parallaxFragPos;
+            parallaxLightDir = normalize(parallaxFragToLight);
+            parallaxLightDistance = length(parallaxFragToLight);
             if (light.type == SPOT_LIGHT)
             {
                 //计算聚光可见范围(TODO:下面很多计算可提取到cpu中计算)
                 float cosOuterCutoffAngle = cos(radians(light.cutoffAngle.y));
                 float cosInnerCutoffAngle = cos(radians(light.cutoffAngle.x)); 
                 float epsilon = cosInnerCutoffAngle - cosOuterCutoffAngle;
-                float cosLightAngle = dot(lightDir, -normalize(light.direction));
+                float cosLightAngle = dot(parallaxLightDir, -normalize(light.direction));
                 intensity = clamp((cosLightAngle - cosOuterCutoffAngle) / epsilon, 0.0, 1.0);
             }
         }
@@ -489,34 +560,49 @@ void main()
         }
         
         //衰减
-        float attenuation = 1.0 / (light.attenuation[0] + light.attenuation[1] * lightDistance + light.attenuation[2] * (lightDistance * lightDistance));
+        float attenuation = 1.0 / (light.attenuation[0] + light.attenuation[1] * parallaxLightDistance + light.attenuation[2] * (parallaxLightDistance * parallaxLightDistance));
 
         //光照值
         vec3 lightColor = light.color * light.brightness * attenuation;
 
         //漫反射
-        vec3 diffuse = max(dot(normal, lightDir), 0.0) * lightColor;
+        vec3 diffuse = max(dot(parallaxNormal, parallaxLightDir), 0.0) * lightColor;
     
         //高光反射
         float specularStrength;
         if(light.useBlinnPhong){
             //Blinn-Phong
-            vec3 midDir = normalize(viewDir + lightDir);
-            specularStrength = pow(max(dot(midDir, normal), 0.0), u_shininess);
+            vec3 midDir = normalize(viewDir + parallaxLightDir);
+            specularStrength = pow(max(dot(midDir, parallaxNormal), 0.0), u_shininess);
         }
         else {
             //Phong
-            vec3 reflectDir = reflect(-lightDir, normal);
+            vec3 reflectDir = reflect(-parallaxLightDir, parallaxNormal);
             specularStrength = pow(max(dot(viewDir, reflectDir), 0.0), u_shininess);
         }
 
         vec3 specular = u_specularColor * specularStrength * specularTexColor * lightColor;
         
         //阴影值
-        float shadow = light.castShadow ? light.type == POINT_LIGHT ? ShadowCalculation_pointLight(i, v_TangentLightDir[i]) : ShadowCalculation(i, v_TangentLightDir[i]) : 0;
-        if(u_enableHeightTexture && u_enableHeightTextureShadow && light.castShadow)
+        float shadow = 0;
+        if(light.castShadow)
         {
-            shadow = clamp(ParallaxShadow(texCoords, v_TangentLightDir[i], parallaxHeight, shadow) * u_heightTextureShadowScale, 0, 1);
+            //vec4 fragPosLightSpace = f.FragPosLightSpaces[i]; //读取顶点着色器中预计算好的值
+            //vec3 tangentLightDir = f.TangentLightDir[i]; //读取顶点着色器中预计算好的值
+            //启用上面两句预计算的话，要解注释掉所有“//预计算”注释的语句，并且下面两句通用计算要移动到下面注释掉的if中，因为视差贴图偏移后就不能用预计算的值了
+            vec4  fragPosLightSpace = light.lightSpaceMatrix * vec4(parallaxFragPos, 1);
+            vec3  tangentLightDir = f.inversedTBN * parallaxLightDir;
+            //if(u_enableParallaxFragPos) //使用视差贴图偏移后的位置计算阴影
+            //{
+                //fragPosLightSpace = vec4(calculateByBarycentric(barycentric, TrangleFragPosLightSpaces[i * 3 + 0], TrangleFragPosLightSpaces[i * 3 + 1], TrangleFragPosLightSpaces[i * 3 + 2]), 1);
+                //tangentLightDir = calculateByBarycentric(barycentric, TrangleTangentLightDir[i * 3 + 0], TrangleTangentLightDir[i * 3 + 1], TrangleTangentLightDir[i * 3 + 2]);
+            //}
+            shadow = light.type == POINT_LIGHT ? ShadowCalculation_pointLight(i, tangentLightDir, parallaxFragPos) : ShadowCalculation(i, tangentLightDir, fragPosLightSpace);
+            if(u_enableHeightTextureSelfShadow)  //计算视差贴图的自阴影
+            {
+                shadow += ParallaxShadow(parallaxTexCoords, tangentLightDir, parallaxHeight) * u_heightTextureShadowScale;
+                shadow = clamp(shadow, 0, 1);
+            }
         }
         //合并所有光照
         allLightsColor += (diffuse + specular) * intensity * (1.0 - shadow);
