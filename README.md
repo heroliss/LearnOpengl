@@ -29,10 +29,13 @@ WASD/QE 移动相机，鼠标拖动旋转，方向键移动模型，滚轮调整
 ```powershell
 ./bin/Release/LearnOpengl.exe --hidden --preset cube --capture captures/cube.png
 ./bin/Release/LearnOpengl.exe --hidden --preset cube-flat --capture captures/flat.png
+./bin/Release/LearnOpengl.exe --hidden --preset cube-normal --with-ui --capture captures/normal-inspector.png
 ./bin/Release/LearnOpengl.exe --hidden --preset cube --with-ui --capture captures/inspector.png
 ```
 
 截图读取原程序实际 OpenGL framebuffer，固定 1600×900，等待 12 帧后导出并退出；`--with-ui` 包含真实 ImGui 面板。`--preset` 只是设置现有实验参数，不另建渲染器。其他预设与参数可用 `--help` 查看。仅保留 `--preset cube` 可直接打开场景继续交互。
+
+`cube-flat` 关闭法线和视差，`cube-normal` 保留法线、关闭视差，`cube` 同时使用法线和视差，便于同材质对照。Windows 使用宽字符命令行入口转 UTF-8，已验证中文绝对输出路径。`--frames` 必须为正整数；无效值会返回错误码 2。
 
 本轮还修复了未初始化的显示开关、无位移贴图的材质仍执行视差/自阴影，以及含空格目录的构建后复制命令。截图展示的是这些修复后的原工程。
 

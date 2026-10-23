@@ -115,7 +115,7 @@ namespace test {
 		app->input->ModelMatrix = glm::rotate(glm::mat4(1), glm::radians(28.0f), glm::vec3(0, 1, 0));
 		app->input->ModelMatrix = glm::rotate(app->input->ModelMatrix, glm::radians(14.0f), glm::vec3(1, 0, 0));
 		mainMaterial->Ambient = glm::vec3(0.2f);
-		if (preset == "cube" || preset == "cube-flat" || preset == "grayscale") {
+		if (preset == "cube" || preset == "cube-flat" || preset == "cube-normal" || preset == "grayscale") {
 			app->renderer->camera.position.z = 280;
 			app->renderer->camera.UpdateViewMatrix();
 		}
@@ -126,6 +126,7 @@ namespace test {
 		else if (preset == "wireframe") { currentModelIndex = 1; showLine = true; }
 		else if (preset == "grayscale") app->renderer->postProcessingMaterials.push_back(std::make_shared<Grayscale>());
 		else if (preset == "cube-flat") { mainMaterial->EnableHeightTexture = false; enableNormalTexture = false; }
+		else if (preset == "cube-normal") mainMaterial->EnableHeightTexture = false;
 		else if (preset != "cube") throw std::invalid_argument("Unknown showcase preset: " + preset);
 	}
 

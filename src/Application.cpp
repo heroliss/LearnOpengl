@@ -1,4 +1,5 @@
 #define _CRT_SECURE_NO_WARNINGS
+#define NOMINMAX
 #include "Application.h"
 
 
@@ -8,6 +9,9 @@
 #include <chrono>
 #include <thread>
 #include <filesystem>
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../vendor/stb/stb_image_write.h"
 
@@ -244,6 +248,7 @@ void Application::SaveCapture()
 {
 	int width, height;
 	glfwGetFramebufferSize(window, &width, &height);
+	if (width <= 0 || height <= 0) throw std::runtime_error("Cannot capture an empty framebuffer.");
 	std::vector<unsigned char> pixels(static_cast<size_t>(width) * height * 3);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glReadBuffer(GL_BACK);
@@ -257,7 +262,7 @@ void Application::SaveCapture()
 	std::cout << "Saved framebuffer: " << CapturePath << " (" << width << "x" << height << ")" << std::endl;
 }
 
-int main(int argc, char** argv)
+static int MainWithUtf8Arguments(int argc, char** argv)
 {
 #ifdef _WIN32
 	// Windows操作系统
@@ -269,10 +274,11 @@ int main(int argc, char** argv)
 #endif
 
 	Application app;
+	try {
 	for (int i = 1; i < argc; ++i) {
 		std::string arg = argv[i];
 		if (arg == "--help") {
-			std::cout << "LearnOpengl [--preset cube|cube-flat|character|car|sphere|normals|wireframe|grayscale] "
+			std::cout << "LearnOpengl [--preset cube|cube-flat|cube-normal|character|car|sphere|normals|wireframe|grayscale] "
 				"[--capture output.png] [--hidden] [--with-ui] [--frames 12]" << std::endl;
 			return 0;
 		}
@@ -280,10 +286,43 @@ int main(int argc, char** argv)
 		else if (arg == "--with-ui") app.CaptureWithUI = true;
 		else if (arg == "--capture" && i + 1 < argc) app.CapturePath = argv[++i];
 		else if (arg == "--preset" && i + 1 < argc) app.ShowcasePreset = argv[++i];
-		else if (arg == "--frames" && i + 1 < argc) app.CaptureFrame = std::max(1, std::stoi(argv[++i]));
+		else if (arg == "--frames" && i + 1 < argc) {
+			const std::string value = argv[++i];
+			std::size_t consumed = 0;
+			app.CaptureFrame = std::stoi(value, &consumed);
+			if (consumed != value.size() || app.CaptureFrame < 1)
+				throw std::invalid_argument("--frames requires a positive integer.");
+		}
 		else { std::cerr << "Unknown or incomplete argument: " << arg << std::endl; return 2; }
+	}
+	} catch (const std::exception& error) {
+		std::cerr << "Invalid capture argument: " << error.what() << std::endl;
+		return 2;
 	}
 	if (app.HiddenWindow && app.CapturePath.empty()) { std::cerr << "--hidden requires --capture." << std::endl; return 2; }
 	try { return app.Run(); }
 	catch (const std::exception& error) { std::cerr << error.what() << std::endl; return 1; }
 }
+
+#ifdef _WIN32
+int wmain(int argc, wchar_t** wideArguments)
+{
+	// The CRT's narrow argv uses the system ANSI code page. Convert the original
+	// UTF-16 Windows arguments explicitly before passing paths to stb/filesystem.
+	std::vector<std::string> utf8Arguments;
+	utf8Arguments.reserve(argc);
+	for (int i = 0; i < argc; ++i) {
+		const int size = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wideArguments[i], -1, nullptr, 0, nullptr, nullptr);
+		if (size <= 0) { std::cerr << "Invalid Windows command-line encoding." << std::endl; return 2; }
+		std::string value(size, '\0');
+		WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wideArguments[i], -1, value.data(), size, nullptr, nullptr);
+		value.pop_back();
+		utf8Arguments.push_back(std::move(value));
+	}
+	std::vector<char*> arguments;
+	for (auto& value : utf8Arguments) arguments.push_back(value.data());
+	return MainWithUtf8Arguments(argc, arguments.data());
+}
+#else
+int main(int argc, char** argv) { return MainWithUtf8Arguments(argc, argv); }
+#endif

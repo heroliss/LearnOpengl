@@ -24,11 +24,11 @@ namespace test
 
 	void TestMenu::SelectShowcase(const std::string& preset)
 	{
-		delete m_CurrentTest;
 		Application::GetInstance()->renderer->ResetCamera();
-		auto scene = new Test3D();
+		auto scene = std::make_unique<Test3D>();
 		scene->ApplyShowcasePreset(preset);
-		m_CurrentTest = scene;
+		delete m_CurrentTest;
+		m_CurrentTest = scene.release();
 	}
 
 	void TestMenu::OnUpdate(float deltaTime)
