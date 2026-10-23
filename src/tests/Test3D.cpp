@@ -122,6 +122,10 @@ namespace test {
 		if (preset == "character") currentModelIndex = 3;
 		else if (preset == "car") currentModelIndex = 4;
 		else if (preset == "sphere") currentModelIndex = 1;
+		else if (preset == "grid-sphere") currentModelIndex = 2;
+		else if (preset == "planet") currentModelIndex = 5;
+		else if (preset == "rock") currentModelIndex = 6;
+		else if (preset == "plane") currentModelIndex = 7;
 		else if (preset == "normals") { currentModelIndex = 1; normalDisplayMaterial->showVertexNormal = true; }
 		else if (preset == "wireframe") { currentModelIndex = 1; showLine = true; }
 		else if (preset == "grayscale") app->renderer->postProcessingMaterials.push_back(std::make_shared<Grayscale>());

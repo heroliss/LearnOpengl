@@ -29,7 +29,7 @@ public:
 
 	int Run();
 	std::string CapturePath;
-	std::string ShowcasePreset;
+	std::string ShowcasePreset = "cube";
 	bool HiddenWindow = false;
 	bool CaptureWithUI = false;
 	int CaptureFrame = 12;

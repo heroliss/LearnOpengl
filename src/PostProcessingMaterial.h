@@ -11,7 +11,7 @@ public:
 	virtual void DrawImgui(int id) = 0;
 
 	std::vector<std::shared_ptr<Texture>> RenderTargets;
-	std::shared_ptr<Texture> ErrorTexture = Texture::Get("ErrorTexture");
+	std::shared_ptr<Texture> ErrorTexture = Texture::Get(255, 0, 255);
 
 	void ApplyUniforms(glm::mat4 modelMatrix) const override
 	{

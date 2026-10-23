@@ -25,6 +25,11 @@ namespace test
 	void TestMenu::SelectShowcase(const std::string& preset)
 	{
 		Application::GetInstance()->renderer->ResetCamera();
+		if (preset == "clear-color" || preset == "texture-2d") {
+			delete m_CurrentTest;
+			m_CurrentTest = preset == "clear-color" ? static_cast<Test*>(new TestClearColor()) : static_cast<Test*>(new TestTexture2D());
+			return;
+		}
 		auto scene = std::make_unique<Test3D>();
 		scene->ApplyShowcasePreset(preset);
 		delete m_CurrentTest;

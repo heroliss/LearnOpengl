@@ -1,5 +1,12 @@
 ﻿#include "GUI.h"
 
+#include <filesystem>
+#include <iostream>
+#ifdef _WIN32
+#define NOMINMAX
+#include <Windows.h>
+#endif
+
 GUI::GUI(const char* glsl_version, GLFWwindow* window)
 	: glsl_version(glsl_version)
 	, window(nullptr)
@@ -10,16 +17,40 @@ GUI::GUI(const char* glsl_version, GLFWwindow* window)
 
 	ImGui::CreateContext();
 
-	//设置配置数据文件到临时目录中
-	ImGui::GetIO().IniFilename = "temp/imgui.ini";
-	ImGui::GetIO().LogFilename = "temp/imgui_log.txt";
+	// Mutable settings belong outside the extracted application directory.
+	std::filesystem::path settings = std::filesystem::temp_directory_path() / "Liss/LearnOpenGL";
+#ifdef _WIN32
+	wchar_t localAppData[32768];
+	const DWORD length = GetEnvironmentVariableW(L"LOCALAPPDATA", localAppData, 32768);
+	if (length > 0 && length < 32768) settings = std::filesystem::path(localAppData) / "Liss/LearnOpenGL";
+#endif
+	std::filesystem::create_directories(settings);
+	const auto ini = (settings / "imgui.ini").u8string();
+	const auto log = (settings / "imgui_log.txt").u8string();
+	iniPath.assign(ini.begin(), ini.end());
+	logPath.assign(log.begin(), log.end());
+	ImGui::GetIO().IniFilename = iniPath.c_str();
+	ImGui::GetIO().LogFilename = logPath.c_str();
 
 	io = &ImGui::GetIO();
 	io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 	io->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
-	//添加中文字体
-	io->Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\msyh.ttc", 16.0f, nullptr, io->Fonts->GetGlyphRangesChineseFull());//微软雅黑字体
+	// Prefer an installed CJK font, falling back to an installed Latin or built-in font.
+#ifdef _WIN32
+	wchar_t windowsDirectory[32768];
+	const UINT windowsLength = GetWindowsDirectoryW(windowsDirectory, 32768);
+	if (windowsLength > 0 && windowsLength < 32768) {
+		for (const auto* name : { L"msyh.ttc", L"msyh.ttf", L"segoeui.ttf" }) {
+			const auto path = std::filesystem::path(windowsDirectory) / "Fonts" / name;
+			if (!std::filesystem::is_regular_file(path)) continue;
+			const auto encoded = path.u8string();
+			const std::string fontPath(encoded.begin(), encoded.end());
+			if (io->Fonts->AddFontFromFileTTF(fontPath.c_str(), 16.0f, nullptr, io->Fonts->GetGlyphRangesChineseFull())) break;
+		}
+	}
+#endif
+	if (io->Fonts->Fonts.empty()) io->Fonts->AddFontDefault();
 
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();

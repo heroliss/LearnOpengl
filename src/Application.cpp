@@ -262,11 +262,63 @@ void Application::SaveCapture()
 	std::cout << "Saved framebuffer: " << CapturePath << " (" << width << "x" << height << ")" << std::endl;
 }
 
+static std::string Utf8Path(const std::filesystem::path& path)
+{
+	const auto text = path.u8string();
+	return std::string(text.begin(), text.end());
+}
+
+static std::filesystem::path ExecutableDirectory()
+{
+#ifdef _WIN32
+	std::vector<wchar_t> buffer(1024);
+	for (;;) {
+		const DWORD length = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+		if (length == 0) throw std::runtime_error("Cannot locate the application executable.");
+		if (length < buffer.size()) return std::filesystem::path(std::wstring(buffer.data(), length)).parent_path();
+		buffer.resize(buffer.size() * 2);
+	}
+#else
+	return std::filesystem::current_path();
+#endif
+}
+
+static void PrepareRuntimePaths(Application& app)
+{
+	// Keep output paths relative to the caller, even after selecting the assets.
+	if (!app.CapturePath.empty()) {
+		auto path = std::filesystem::path(std::u8string(app.CapturePath.begin(), app.CapturePath.end()));
+		app.CapturePath = Utf8Path(std::filesystem::absolute(path));
+	}
+	// A release keeps res beside its executable; developer builds live in bin/Release.
+	auto candidate = ExecutableDirectory();
+	for (int level = 0; level < 4; ++level) {
+		if (std::filesystem::is_regular_file(candidate / "res/shaders/3D_basic.glsl") &&
+			std::filesystem::is_regular_file(candidate / "res/textures/toy_box_diffuse.png")) {
+			std::filesystem::current_path(candidate);
+			std::cout << "Resource root: " << Utf8Path(candidate) << std::endl;
+#ifdef _WIN32
+			for (const wchar_t* name : { L"msvcp140.dll", L"vcruntime140.dll", L"vcruntime140_1.dll" }) {
+				wchar_t modulePath[32768];
+				const auto module = GetModuleHandleW(name);
+				const DWORD size = module ? GetModuleFileNameW(module, modulePath, 32768) : 0;
+				if (size) std::cout << "Runtime DLL: " << Utf8Path(std::filesystem::path(std::wstring(modulePath, size))) << std::endl;
+			}
+#endif
+			return;
+		}
+		const auto parent = candidate.parent_path();
+		if (parent == candidate) break;
+		candidate = parent;
+	}
+	throw std::runtime_error("The res folder is missing. Extract the complete archive before starting LearnOpengl.exe.");
+}
+
 static int MainWithUtf8Arguments(int argc, char** argv)
 {
 #ifdef _WIN32
 	// Windows操作系统
-	system("chcp 65001"); //设置活动代码页为UTF-8。解决在cmd中输出中文乱码的问题
+	SetConsoleOutputCP(CP_UTF8);
 #elif __linux__
 	// Linux操作系统
 #elif __APPLE__
@@ -278,11 +330,12 @@ static int MainWithUtf8Arguments(int argc, char** argv)
 	for (int i = 1; i < argc; ++i) {
 		std::string arg = argv[i];
 		if (arg == "--help") {
-			std::cout << "LearnOpengl [--preset cube|cube-flat|cube-normal|character|car|sphere|normals|wireframe|grayscale] "
-				"[--capture output.png] [--hidden] [--with-ui] [--frames 12]" << std::endl;
+			std::cout << "LearnOpengl [--preset cube|cube-flat|cube-normal|character|car|sphere|grid-sphere|planet|rock|plane|normals|wireframe|grayscale|clear-color|texture-2d] "
+				"[--menu] [--capture output.png] [--hidden] [--with-ui] [--frames 12]" << std::endl;
 			return 0;
 		}
 		else if (arg == "--hidden") app.HiddenWindow = true;
+		else if (arg == "--menu") app.ShowcasePreset.clear();
 		else if (arg == "--with-ui") app.CaptureWithUI = true;
 		else if (arg == "--capture" && i + 1 < argc) app.CapturePath = argv[++i];
 		else if (arg == "--preset" && i + 1 < argc) app.ShowcasePreset = argv[++i];
@@ -300,7 +353,7 @@ static int MainWithUtf8Arguments(int argc, char** argv)
 		return 2;
 	}
 	if (app.HiddenWindow && app.CapturePath.empty()) { std::cerr << "--hidden requires --capture." << std::endl; return 2; }
-	try { return app.Run(); }
+	try { PrepareRuntimePaths(app); return app.Run(); }
 	catch (const std::exception& error) { std::cerr << error.what() << std::endl; return 1; }
 }
 
