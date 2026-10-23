@@ -33,6 +33,7 @@ namespace test {
 		void OnUpdate(float deltaTime) override;
 		void OnRender() override;
 		void OnImGuiRender() override;
+		void ApplyShowcasePreset(const std::string& preset);
 	private:
 		Skybox skybox;
 		std::unique_ptr<VertexArray> va_centerPoint;
@@ -46,18 +47,18 @@ namespace test {
 		std::unique_ptr<TexcoordDisplayMaterial> texcoordDisplayMaterial;
 		std::unique_ptr<DepthDisplayMaterial> depthDisplayMaterial;
 
-		bool showTexcoord;
-		bool showDepth;
-		bool showSkybox;
-		bool showOutline;
-		bool showLine;
-		bool showPoint;
-		bool canSeeThrough; //showLine和showPoint时是否可以看到后面
+		bool showTexcoord = false;
+		bool showDepth = false;
+		bool showSkybox = false;
+		bool showOutline = false;
+		bool showLine = false;
+		bool showPoint = false;
+		bool canSeeThrough = false; //showLine和showPoint时是否可以看到后面
 
 		bool enableNormalTexture = true;
 		bool enableMainTexture = true;
 		bool enableSpecularTexture = true;
-		int randomSeed;
+		int randomSeed = 0;
 
 		std::vector<std::shared_ptr<Light>>& lights = Application::GetInstance()->renderer->lights;
 
@@ -114,15 +115,15 @@ namespace test {
 		}
 
 		//模型相关
-		bool mutiCubes;
+		bool mutiCubes = false;
 
 		std::shared_ptr<Model> rockModel;
 		std::shared_ptr<glm::mat4[]> rockModelMatrices;
 		std::shared_ptr<glm::vec3[]> asteroidRevolvesAxis;
 		float planetMass = 10; //单位是兆吨
 		float G = 6.67e-11;
-		float planetTimeScale; //秒
-		unsigned int asteroidBeltAmount;
+		float planetTimeScale = 0; //秒
+		unsigned int asteroidBeltAmount = 1000;
 
 		float asteroidBeltRadius = 200.0f;    //小行星带最内圈半径
 		float asteroidBeltWidth = 400.0f;     //小行星带宽度（既xz方向向外拓展的距离）

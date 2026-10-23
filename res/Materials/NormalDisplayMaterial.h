@@ -8,8 +8,8 @@ class NormalDisplayMaterial : public Material
 {
 public:
 	float size = 10;
-	bool showVertexNormal;
-	bool showFragmentNormal;
+	bool showVertexNormal = false;
+	bool showFragmentNormal = false;
 	float showFragmentNormalInterval = 0; //该值为0或负数时，表示启用下面的showFragmentNormalSamplesSize
 	glm::vec2 showFragmentNormalSamplesSize = glm::vec2(10, 10);
 	std::shared_ptr<Texture> NormalTexture = Texture::Get(128, 128, 255);

@@ -28,6 +28,12 @@ public:
  	const GLFWvidmode* videoMode;
 
 	int Run();
+	std::string CapturePath;
+	std::string ShowcasePreset;
+	bool HiddenWindow = false;
+	bool CaptureWithUI = false;
+	int CaptureFrame = 12;
+	void SaveCapture();
 
 	bool needRestart = false;
 	int WindowMsaaSamples = 0; //窗口全局的多重采样设置

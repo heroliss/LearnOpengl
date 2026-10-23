@@ -22,6 +22,15 @@ namespace test
 		if (m_CurrentTest != nullptr) delete m_CurrentTest;
 	}
 
+	void TestMenu::SelectShowcase(const std::string& preset)
+	{
+		delete m_CurrentTest;
+		Application::GetInstance()->renderer->ResetCamera();
+		auto scene = new Test3D();
+		scene->ApplyShowcasePreset(preset);
+		m_CurrentTest = scene;
+	}
+
 	void TestMenu::OnUpdate(float deltaTime)
 	{
 		if (m_CurrentTest)

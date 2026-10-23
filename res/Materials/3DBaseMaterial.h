@@ -43,7 +43,7 @@ public:
 
 	std::shared_ptr<Cubemap> cubemap; //环境立方体贴图（目前用于天空盒反射和折射，进阶可变为反射探针结果）
 
-	bool enableRefract; //是否开启折射（目前仅支持折射天空盒，此时透明度恒为1）
+	bool enableRefract = false; //是否开启折射（目前仅支持折射天空盒，此时透明度恒为1）
 	float refractiveIndex = 1.52; //折射率 (空气1.00 水1.33 冰1.309	玻璃1.52 钻石2.42)
 	glm::vec3 refractColor = glm::vec3(1); //折射颜色和强度
 
@@ -173,8 +173,10 @@ public:
 		if (mat->GetTextureCount(aiTextureType_DISPLACEMENT) == 0)
 		{
 			HeightTexture = Texture::Get(0, 0, 0);
+			EnableHeightTexture = false;
 		}
 		else {
+			EnableHeightTexture = true;
 			mat->GetTexture(aiTextureType_DISPLACEMENT, 0, &texturePath);
 			HeightTexture = Texture::Get(directory + texturePath.C_Str(), false, false);
 			std::cout << std::format("aiMaterial({}): Apply height texture: {}\n", mat->GetName().C_Str(), HeightTexture->GetPath());

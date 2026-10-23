@@ -13,7 +13,7 @@ public:
 		//std::cout << "销毁Material！！！！！！！！！" << std::endl;
 	}
 
-	bool IsTransparent;
+	bool IsTransparent = false;
 
 	Shader* GetShader() const;
 	virtual void ApplyUniforms(glm::mat4 modelMatrix) const = 0;

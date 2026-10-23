@@ -10,7 +10,7 @@ public:
 	int cubemapDebugShowLayer;
 	bool useCubemap;
 	glm::vec3 lightPos;
-	glm::mat4 lightSpaceMatrix[6]; //µã¹âÔ´ĞèÒªÓÃµ½6¸ö·½ÏòµÄ¾ØÕó£¬ÆäËû¹âÔ´Ö»ĞèÓÃµ½0Î»ÖÃ¾ØÕó
+	glm::mat4 lightSpaceMatrix[6]; //ç‚¹å…‰æºéœ€è¦ç”¨åˆ°6ä¸ªæ–¹å‘çš„çŸ©é˜µï¼Œå…¶ä»–å…‰æºåªéœ€ç”¨åˆ°0ä½ç½®çŸ©é˜µ
 	glm::vec2 nearAndFar;
 	glm::vec2 showDepthRange;
 	bool linearizeDepth;

@@ -25,6 +25,7 @@ namespace test {
 		void OnUpdate(float deltaTime) override;
 		void OnRender() override;
 		void OnImGuiRender() override;
+		void SelectShowcase(const std::string& preset);
 	private:
 		Test* m_CurrentTest;
 		std::vector<std::pair<std::string, std::function<Test* ()>>> m_Tests;
@@ -41,8 +42,8 @@ namespace test {
 		int lastFrameCount = 0;
 		float fps = 0;
 
-		bool fullscreenMode;
-		bool enableStepLimit;
+		bool fullscreenMode = false;
+		bool enableStepLimit = false;
 	};
 }
 

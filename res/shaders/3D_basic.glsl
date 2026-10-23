@@ -466,7 +466,7 @@ void main()
     //使用视差图获取改变后的纹理坐标
     vec2 parallaxTexCoords = f.TexCoord; //视差贴图偏移后的片元的纹理坐标，默认为原坐标
     vec3 parallaxFragPos = f.FragPos; //视差贴图偏移后的片元位置，默认为原位置
-    float parallaxHeight;
+    float parallaxHeight = 0.0;
     vec3 barycentric;
     if(u_enableHeightTexture)
     {
@@ -598,7 +598,7 @@ void main()
                 //tangentLightDir = calculateByBarycentric(barycentric, TrangleTangentLightDir[i * 3 + 0], TrangleTangentLightDir[i * 3 + 1], TrangleTangentLightDir[i * 3 + 2]);
             //}
             shadow = light.type == POINT_LIGHT ? ShadowCalculation_pointLight(i, tangentLightDir, parallaxFragPos) : ShadowCalculation(i, tangentLightDir, fragPosLightSpace);
-            if(u_enableHeightTextureSelfShadow)  //计算视差贴图的自阴影
+            if(u_enableHeightTexture && u_enableHeightTextureSelfShadow)  //计算视差贴图的自阴影
             {
                 shadow += ParallaxShadow(parallaxTexCoords, tangentLightDir, parallaxHeight) * u_heightTextureShadowScale;
                 shadow = clamp(shadow, 0, 1);

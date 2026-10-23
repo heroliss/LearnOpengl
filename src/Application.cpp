@@ -1,9 +1,15 @@
-﻿#include "Application.h"
+#define _CRT_SECURE_NO_WARNINGS
+#include "Application.h"
 
+
+#define STBIW_WINDOWS_UTF8
 #include <iostream>
 #include <string>
 #include <chrono>
 #include <thread>
+#include <filesystem>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "../vendor/stb/stb_image_write.h"
 
 #include "renderer.h"
 
@@ -58,6 +64,7 @@ start:
 		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
 		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // Required on Mac
 		glfwWindowHint(GLFW_SAMPLES, WindowMsaaSamples);  //设置MSAA抗锯齿
+		glfwWindowHint(GLFW_VISIBLE, HiddenWindow ? GLFW_FALSE : GLFW_TRUE);
 
 		//获取主显示器的分辨率，确定要使用的分辨率
 		GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();	// 获取主显示器的句柄
@@ -77,7 +84,8 @@ start:
 		}
 
 		//创建窗口
-		window = glfwCreateWindow(initWidth, initHeight, "Hello World", NULL, NULL);
+		if (!CapturePath.empty()) { initWidth = 1600; initHeight = 900; }
+		window = glfwCreateWindow(initWidth, initHeight, "LearnOpenGL - Rendering Lab", NULL, NULL);
 		if (!window)
 		{
 			glfwTerminate();
@@ -99,6 +107,7 @@ start:
 		//初始化GUI
 		GUI gui(glsl_version, window);
 		test::TestMenu testMenu; //初始化启动弹窗
+		if (!ShowcasePreset.empty()) testMenu.SelectShowcase(ShowcasePreset);
 
 		//记录程序开始时间
 		auto appStartTime = std::chrono::high_resolution_clock::now();
@@ -185,11 +194,17 @@ start:
 				renderer->stepCount += renderer->postProcessingMaterials.size();
 			}
 
+			// Capture actual rendered pixels before the optional inspector overlay.
+			if (!CapturePath.empty() && frameCount == CaptureFrame && !CaptureWithUI)
+				SaveCapture();
 			//渲染UI
 			gui.BeginFrame();
 			testMenu.OnImGuiRender();
 			//gui.ShowDemoWindow();
 			gui.EndFrame();
+			if (!CapturePath.empty() && frameCount == CaptureFrame && CaptureWithUI)
+				SaveCapture();
+			if (!CapturePath.empty() && frameCount >= CaptureFrame) QuitApp();
 
 			//交互缓冲区
 			glfwSwapBuffers(window);
@@ -225,7 +240,24 @@ start:
 	return 0;
 }
 
-int main(void)
+void Application::SaveCapture()
+{
+	int width, height;
+	glfwGetFramebufferSize(window, &width, &height);
+	std::vector<unsigned char> pixels(static_cast<size_t>(width) * height * 3);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glReadBuffer(GL_BACK);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+	stbi_flip_vertically_on_write(true);
+	auto captureDirectory = std::filesystem::path(std::u8string(CapturePath.begin(), CapturePath.end())).parent_path();
+	if (!captureDirectory.empty()) std::filesystem::create_directories(captureDirectory);
+	if (!stbi_write_png(CapturePath.c_str(), width, height, 3, pixels.data(), width * 3))
+		throw std::runtime_error("Could not write framebuffer capture: " + CapturePath);
+	std::cout << "Saved framebuffer: " << CapturePath << " (" << width << "x" << height << ")" << std::endl;
+}
+
+int main(int argc, char** argv)
 {
 #ifdef _WIN32
 	// Windows操作系统
@@ -237,5 +269,21 @@ int main(void)
 #endif
 
 	Application app;
-	return app.Run();
+	for (int i = 1; i < argc; ++i) {
+		std::string arg = argv[i];
+		if (arg == "--help") {
+			std::cout << "LearnOpengl [--preset cube|cube-flat|character|car|sphere|normals|wireframe|grayscale] "
+				"[--capture output.png] [--hidden] [--with-ui] [--frames 12]" << std::endl;
+			return 0;
+		}
+		else if (arg == "--hidden") app.HiddenWindow = true;
+		else if (arg == "--with-ui") app.CaptureWithUI = true;
+		else if (arg == "--capture" && i + 1 < argc) app.CapturePath = argv[++i];
+		else if (arg == "--preset" && i + 1 < argc) app.ShowcasePreset = argv[++i];
+		else if (arg == "--frames" && i + 1 < argc) app.CaptureFrame = std::max(1, std::stoi(argv[++i]));
+		else { std::cerr << "Unknown or incomplete argument: " << arg << std::endl; return 2; }
+	}
+	if (app.HiddenWindow && app.CapturePath.empty()) { std::cerr << "--hidden requires --capture." << std::endl; return 2; }
+	try { return app.Run(); }
+	catch (const std::exception& error) { std::cerr << error.what() << std::endl; return 1; }
 }

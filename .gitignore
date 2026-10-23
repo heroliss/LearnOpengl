@@ -3,3 +3,5 @@
 /temp
 /.vs
 /.vscode
+/*.log
+/captures/
