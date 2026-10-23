@@ -71,6 +71,8 @@ $files = @(Get-ChildItem -LiteralPath $packageRoot -File -Recurse | Sort-Object 
     }
 })
 $resources = @($files | Where-Object { $_.path.StartsWith('res/') })
+$resourceBytes = 0L
+foreach ($resource in $resources) { $resourceBytes += [long]$resource.bytes }
 $manifest = [ordered]@{
     schema = 'liss.learnopengl.windows-package.v1'
     version = $Version
@@ -83,7 +85,7 @@ $manifest = [ordered]@{
     appLocalCrtVersion = $crtDirectory.Parent.Parent.Name
     appLocalCrtDlls = @($crtFiles.Name)
     resourceFiles = $resources.Count
-    resourceBytes = ($resources | Measure-Object bytes -Sum).Sum
+    resourceBytes = $resourceBytes
     files = $files
 }
 $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $packageRoot 'release-manifest.json') -Encoding utf8
